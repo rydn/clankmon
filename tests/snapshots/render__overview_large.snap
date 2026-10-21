@@ -3,52 +3,52 @@ source: tests/render.rs
 expression: "render(View::Overview, 200, 50)"
 ---
  ▗▛▜▖▜▛  ▗█▖ █▖▐▌▜▌▐▌█▖▟▌▗▛▙ █▖▐▌   PLAN  MAX · max 20x ▸ theme neon                                                                                                                           19:30:00 
- █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting                                                                                                                               
+ █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting ▸ ↯ 2 streaming 84 tok/s                                                                                                      
  ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h                                                                                                                        
   ▀▀ ▀▀▀▘▀ ▀ ▀ ▝▘▀▘▝▘▀ ▝▘ ▀▘ ▀ ▝▘   FEED  ●jsonl ●procs ●status ●hooks ●proxy ○otel ○oauth                                                                                                              
 ╭◢ QUOTA ◣────────────────────────────────────────────────────────────────── statusline 0s ago ╮╭◢ THROUGHPUT ◣───────────────────────────────────────────────────────────────────────── 10s/col · 16m ╮
-│5H  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱   81%  ⟳1h37m ││▲ PROMPT   67k tok/min  peak 1.9M  ■read ■write ■new                                                  │
-│                             ⢠⣤⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶ ALLOWED pace 68% ▸ 100% in 39m                      ││2.0M┤┊▂          ┊           ┊           ┊          ▆┊           ┊           ┊        ▆  ┊           ┊│
-│                                                                                              ││1.0M┤┊█┈┈┈┈┈┈┈┈┈┈┊┈┈▆┈┈┈┈┈┈┈┈▆┈┈┈┈┈┈┈┈┈┈┈┊┈┈┈┈┈┈┈┈┈┈█┊┈▆┈┈▁┈┈┈┈┈┈┊┈┈┈┈┈┈┈▂▆┈┈┊┈┈┈┈┈┈┈┈█┈┈┊┈┈▆┈┈┈┈┈┈┈┈┊│
-│7D  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱   70%  ⟳2d13h ││   0┤┊█       ▃  ┊  ██       █   ▇       ┊    ▃     █┊ █ ▃▇ █▁ ▃ ▄    ▇ ▁██  ┊   ▇    █  ┊  █    ▄   ┊│
-│                                        ⢰ ALLOWED pace 64% ▸ 100% in 5h00m                    ││▼ OUTPUT   189 tok/min  peak 19k  ■text ■thinking                                                     │
+│5H  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱   81%  ⟳1h37m ││▲ PROMPT  622k tok/min  peak 1.9M  ■read ■write ■new                                                  │
+│                             ⢠⣤⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶ ALLOWED pace 68% ▸ 100% in 39m                      ││2.5M┤┊           ┊           ┊           ┊          ▁┊           ┊           ┊        ▂  ┊          ▂┊│
+│                                                                                              ││1.2M┤┊▇┈┈┈┈┈┈┈┈┈┈┊┈┈▃┈┈┈┈┈┈┈┈▃┈┈┈┈┈┈┈┈┈┈┈┊┈┈┈┈┈┈┈┈┈┈█┊┈▃┈┈┈┈┈┈┈┈┈┊┈┈┈┈┈┈┈┈▄┈┈┊┈┈┈┈┈┈┈┈█┈┈┊┈┈▃┈┈┈┈┈┈┈█┊│
+│7D  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱   70%  ⟳2d13h ││   0┤┊█       ▂  ┊  █▆       █   ▆       ┊    ▃     █┊ █ ▃▇ ▆▁ ▃ ▃    ▆ ▁██  ┊   ▆    █  ┊  █    ▃  █┊│
+│                                        ⢰ ALLOWED pace 64% ▸ 100% in 5h00m                    ││▼ OUTPUT   699 tok/min  peak 19k  ■text ■thinking  ↯ 2 streaming  84 tok/s                            │
 │                                                                                              ││ 25k┤┊           ┊           ┊           ┊          ▂┊           ┊       ▂   ┊           ┊           ┊│
 │                                                                                              ││ 12k┤┊▃┈┈┈┈┈┈┈▅┈┈┊┈┈▆┈┈┈┈┈┈┈┈▃┈┈┈┈┈┈┈┈┈┈┈┊┈┈┈┈┈┈┈┈┈┈▄┊┈┈┈┈▃┈┈▂┈┈┈┊┈┈┈┈┈┈┈▄▂┈┈┊┈┈┈┈┈┈┈┈▆┈┈┊┈┈┈┈┈┈┈┈┈┈┈┊│
-│BURN  $10.53/h ▸ 193k tok/m ▸ block ends near $49.22                                          ││   0┤┊█       █  ┊  █▅       ▇   ▄       ┊    ▅     █┊ ▇ ▅▇ ▆▇ ▅ ▄    ▄ ▄█▇  ┊   ▄    █  ┊  ▁    ▁   ┊│
-│BLOCK 17:00→22:00 ▸ $22.89 ▸ 24M tok ▸ 212 req ▸ ends 2h30m                                   ││req 2.0/m ▸ $13.40/h ▸ hit 94% ▸ ttft 1.0s ▸ p50 12.1s ▸ err 0                                        │
+│BURN  $10.53/h ▸ 193k tok/m ▸ block ends near $49.22                                          ││   0┤┊█       █  ┊  █▅       ▇   ▄       ┊    ▅     █┊ ▇ ▅▇ ▆▇ ▅ ▄    ▄ ▄█▇  ┊   ▄    █  ┊  ▁    ▁  ▂┊│
+│BLOCK 17:00→22:00 ▸ $22.89 ▸ 24M tok ▸ 212 req ▸ ends 2h30m                                   ││req 2.0/m ▸ $13.40/h ▸ hit 94% ▸ ttft 1.0s ▸ p50 12.1s ▸ gen 103 tok/s ▸ err 0                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭◢ PROCESSES ◣─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 4 live · 4 shown · sort activity ╮
 │  PID    SESSION            MODEL      EFF STATE           CONTEXT    TURN REQ     TOKENS HIT  COST    CPU   MEM   LAST  PROJECT                                                                      │
 │⏸ 41111  deck-firmware      Sonnet 5.5 med permission 1m   ▱▱▱▱▱ 4.1% 13   187+30  10M    86%  $9.57   0.4   303M  10s   /home/neo/src/netrunner/deck ⎇ fix/deck                                      │
-│⚙ 41037  night-city         Opus 5.5   xhi Bash 5s         ▰▱▱▱▱  18% 7    192+32  37M    97%  $20.28  18.4  422M  5s    /home/neo/src/night-city/api ⎇ main                                          │
-│◐ 41074  ice-breaker        Fable 5.1  hi  thinking 45s    ▱▱▱▱▱ 9.6% 25   181+28  20M    94%  $40.47  7.2   397M  10s   /home/neo/src/arasaka/ice-breaker ⎇ feat/ice                                 │
+│◐ 41074  ice-breaker        Fable 5.1  hi  thinking 0s     ▱▱▱▱▱ 9.6% 25   181+28  20M    94%  $40.47  7.2   397M  0s    /home/neo/src/arasaka/ice-breaker ⎇ feat/ice                                 │
+│◐ 41037  night-city         Opus 5.5   xhi thinking 0s     ▰▱▱▱▱  18% 7    192+32  37M    97%  $20.28  18.4  422M  0s    /home/neo/src/night-city/api ⎇ main                                          │
 │○ 41148  bar-tab            Haiku 4.5  low idle            ▱▱▱▱▱ 6.0% 12   140+22  3.2M   73%  $2.67   0.0   206M  10s   /home/neo/src/afterlife/bar-tab ⎇ main                                       │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭◢ WIRE ◣─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 700 requests loaded ╮╭◢ MODELS · TOOLS ◣──────────────────────╮
 │TIME     SESSION        MODEL       IN     C.RD   C.WR   OUT    COST     STOP        LAT     SRC TOOLS                                                      ││TODAY BY MODEL                          │
-│19:29:29 deck-firmware  Sonnet 5.5  60     43k    7.9k   194    $0.04    tool use    1.0s    J·· Glob                                                       ││Fable 5.1  ███████████████████  $12.55  │
-│19:28:39 night-city     Opus 5.5    378    188k   10k    121    $0.12    end turn    1.6s    JP·                                                            ││Opus 5.5   ███████████▊          $7.73  │
-│19:27:33 ice-breaker    ↳Fable 5.1  521    96k    1.4k   380    $0.08    end turn    1.5s    J··                                                            ││Sonnet 5.5 █████▏                $3.36  │
-│19:27:32 night-city     Opus 5.5    783    184k   26k    2.0k   $0.29    tool use    1.1s    J·· Read                                                       ││Haiku 4.5  ▌                     $0.29  │
+│19:29:58 night-city     Opus 5.5    899    182k   7.6k   ~1     ~$0.10   ▹▸▹ waiting 1.3s    ·P·                                                            ││Fable 5.1  ███████████████████  $12.55  │
+│19:29:55 ice-breaker    Fable 5.1   360    101k   15k    ~273   ~$0.35   ▹▸▹ 84 t/s  4.2s    ·P· ttft 900ms                                                 ││Opus 5.5   ███████████▊          $7.73  │
+│19:29:29 deck-firmware  Sonnet 5.5  60     43k    7.9k   194    $0.04    tool use    1.0s    J·· Glob                                                       ││Sonnet 5.5 █████▏                $3.36  │
+│19:28:39 night-city     Opus 5.5    378    188k   10k    121    $0.12    end turn    1.6s    JP·                                                            ││Haiku 4.5  ▌                     $0.29  │
+│19:27:33 ice-breaker    ↳Fable 5.1  521    96k    1.4k   380    $0.08    end turn    1.5s    J··                                                            ││                                        │
+│19:27:32 night-city     Opus 5.5    783    184k   26k    2.0k   $0.29    tool use    1.1s    J·· Read                                                       ││                                        │
 │19:26:48 ice-breaker    Fable 5.1   91     101k   1.1k   766    $0.09    tool use    1.8s    J·· WebFetch                                                   ││                                        │
 │19:25:37 night-city     Opus 5.5    40     190k   10k    1.7k   $0.16    tool use    908ms   JP· Glob                                                       ││                                        │
 │19:25:27 deck-firmware  Sonnet 5.5  684    45k    890    1.6k   $0.03    tool use    1.2s    J·· Read                                                       ││                                        │
 │19:25:25 ice-breaker    ↳Fable 5.1  71     96k    998    1.5k   $0.12    tool use    1.9s    JP· Read                                                       ││                                        │
 │19:25:11 bar-tab        ↳Haiku 4.5  826    16k    1.2k   767    $0.009   tool use    479ms   JP· Bash                                                       ││                                        │
-│19:24:57 ice-breaker    Fable 5.1   670    96k    825    672    $0.08    tool use    905ms   JP· Edit                                                       ││                                        │
-│19:24:04 deck-firmware  Sonnet 5.5  447    49k    9.0k   752    $0.05    tool use    1.0s    J·· Read                                                       ││                                        │
-│19:23:45 deck-firmware  Sonnet 5.5  146    43k    962    815    $0.02    tool use    977ms   J·· Grep                                                       ││TOOLS                                   │
-│19:23:26 bar-tab        Haiku 4.5   122    16k    1.0k   1.8k   $0.01    end turn    977ms   JP·                                                            ││Read        ███████████████    90   9%  │
-│19:23:14 ice-breaker    Fable 5.1   790    103k   3.1k   982    $0.14    end turn    455ms   J··                                                            ││Glob        ████████████▋      76   4%  │
-│19:22:58 ice-breaker    Fable 5.1   604    101k   21k    1.8k   $0.55    tool use    1.4s    J·· Edit                                                       ││mcp:create_…████████████▏      73   7%  │
-│19:22:43 deck-firmware  ↳Sonnet 5.5 781    44k    823    893    $0.02    tool use    2.2s    J·· WebFetch                                                   ││Bash        ███████████▉       71   4%  │
-│19:22:25 night-city     Opus 5.5    623    188k   1.4k   1.2k   $0.07    tool use    804ms   JP· Edit                                                       ││WebFetch    █████████▉         59   3%  │
-│19:21:59 ice-breaker    ↳Fable 5.1  669    102k   1.2k   2.3k   $0.17    end turn    956ms   J··                                                            ││Edit        █████████▌         57   4%  │
-│19:21:52 night-city     Opus 5.5    253    183k   12k    797    $0.15    end turn    1.1s    JP·                                                            ││Grep        ███▌               21   5%  │
-│19:20:59 deck-firmware  Sonnet 5.5  231    43k    167    1.4k   $0.02    tool use    502ms   J·· Bash                                                       ││Write       ███▍               20   5%  │
+│19:24:57 ice-breaker    Fable 5.1   670    96k    825    672    $0.08    tool use    905ms   JP· Edit                                                       ││TOOLS                                   │
+│19:24:04 deck-firmware  Sonnet 5.5  447    49k    9.0k   752    $0.05    tool use    1.0s    J·· Read                                                       ││Read        ███████████████    90   9%  │
+│19:23:45 deck-firmware  Sonnet 5.5  146    43k    962    815    $0.02    tool use    977ms   J·· Grep                                                       ││Glob        ████████████▋      76   4%  │
+│19:23:26 bar-tab        Haiku 4.5   122    16k    1.0k   1.8k   $0.01    end turn    977ms   JP·                                                            ││mcp:create_…████████████▏      73   7%  │
+│19:23:14 ice-breaker    Fable 5.1   790    103k   3.1k   982    $0.14    end turn    455ms   J··                                                            ││Bash        ███████████▉       71   4%  │
+│19:22:58 ice-breaker    Fable 5.1   604    101k   21k    1.8k   $0.55    tool use    1.4s    J·· Edit                                                       ││WebFetch    █████████▉         59   3%  │
+│19:22:43 deck-firmware  ↳Sonnet 5.5 781    44k    823    893    $0.02    tool use    2.2s    J·· WebFetch                                                   ││Edit        █████████▌         57   4%  │
+│19:22:25 night-city     Opus 5.5    623    188k   1.4k   1.2k   $0.07    tool use    804ms   JP· Edit                                                       ││Grep        ███▌               21   5%  │
+│19:21:59 ice-breaker    ↳Fable 5.1  669    102k   1.2k   2.3k   $0.17    end turn    956ms   J··                                                            ││Write       ███▍               20   5%  │
+│19:21:52 night-city     Opus 5.5    253    183k   12k    797    $0.15    end turn    1.1s    JP·                                                            ││                                        │
+│19:20:59 deck-firmware  Sonnet 5.5  231    43k    167    1.4k   $0.02    tool use    502ms   J·· Bash                                                       ││                                        │
 │19:18:45 ice-breaker    Fable 5.1   191    98k    96     629    $0.06    end turn    1.8s    JP·                                                            ││                                        │
 │19:18:08 night-city     Opus 5.5    695    187k   9.8k   1.8k   $0.16    tool use    1.8s    J·· Glob                                                       ││                                        │
-│19:16:41 ice-breaker    Fable 5.1   549    103k   1.0k   1.4k   $0.12    tool use    831ms   J·· Read                                                       ││                                        │
-│19:16:35 night-city     Opus 5.5    213    187k   574    2.4k   $0.09    tool use    1.2s    J·· Write                                                      ││                                        │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────╯
 1OVERVIEW 2SESSIONS 3REQUESTS 4HISTORY 5LIMITS  ?Help qQuit sSort tTheme pPause +-Zoom gLog                                                                                               sort:activity

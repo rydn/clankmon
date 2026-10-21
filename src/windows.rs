@@ -62,6 +62,9 @@ pub struct Burn {
     pub cache_hit: Option<f64>,
     pub ttft_p50_ms: Option<u64>,
     pub duration_p50_ms: Option<u64>,
+    /// Median generation speed, output tokens per second after the first token
+    /// (needs TTFT and duration, so proxy traffic only).
+    pub gen_tps_p50: Option<f64>,
 }
 
 pub fn burn<'a>(requests: impl IntoIterator<Item = &'a Request>, now: DateTime<Utc>, minutes: i64) -> Burn {
@@ -71,6 +74,7 @@ pub fn burn<'a>(requests: impl IntoIterator<Item = &'a Request>, now: DateTime<U
     let mut cost = 0.0;
     let mut ttfts = Vec::new();
     let mut durs = Vec::new();
+    let mut speeds: Vec<f64> = Vec::new();
     for r in requests {
         if r.ts < since || r.ts > now {
             continue;
@@ -84,7 +88,14 @@ pub fn burn<'a>(requests: impl IntoIterator<Item = &'a Request>, now: DateTime<U
         if let Some(d) = r.duration_ms {
             durs.push(d);
         }
+        if let (Some(t), Some(d)) = (r.ttft_ms, r.duration_ms)
+            && d > t + 200
+            && r.usage.output >= 20
+        {
+            speeds.push(r.usage.output as f64 / ((d - t) as f64 / 1000.0));
+        }
     }
+    speeds.sort_by(f64::total_cmp);
     let m = minutes.max(1) as f64;
     let prompt = u.prompt_total();
     Burn {
@@ -95,6 +106,7 @@ pub fn burn<'a>(requests: impl IntoIterator<Item = &'a Request>, now: DateTime<U
         cache_hit: (prompt > 0).then(|| u.cache_read as f64 / prompt as f64),
         ttft_p50_ms: median(&mut ttfts),
         duration_p50_ms: median(&mut durs),
+        gen_tps_p50: (!speeds.is_empty()).then(|| speeds[speeds.len() / 2]),
     }
 }
 
@@ -133,6 +145,18 @@ impl Bucket {
         self.requests += o.requests;
         self.errors += o.errors;
         self.cost += o.cost;
+    }
+
+    /// Field-wise saturating subtraction (cost may go to zero, never negative).
+    pub fn subtract(&mut self, o: &Bucket) {
+        self.input = self.input.saturating_sub(o.input);
+        self.cache_read = self.cache_read.saturating_sub(o.cache_read);
+        self.cache_write = self.cache_write.saturating_sub(o.cache_write);
+        self.output = self.output.saturating_sub(o.output);
+        self.thinking = self.thinking.saturating_sub(o.thinking);
+        self.requests = self.requests.saturating_sub(o.requests);
+        self.errors = self.errors.saturating_sub(o.errors);
+        self.cost = (self.cost - o.cost).max(0.0);
     }
 
     pub fn is_empty(&self) -> bool {

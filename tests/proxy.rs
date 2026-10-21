@@ -127,12 +127,19 @@ async fn post(port: u16, body: &str) -> (u16, hyper::HeaderMap, Bytes) {
     (status, headers, bytes)
 }
 
+/// Events until the final request record (or `want` events, or a timeout).
 async fn collect(rx: &mut UnboundedReceiver<AppEvent>, want: usize) -> Vec<AppEvent> {
     let mut out = Vec::new();
     while out.len() < want {
         match tokio::time::timeout(Duration::from_secs(3), rx.recv()).await {
             Ok(Some(AppEvent::Collector(..))) => continue,
-            Ok(Some(e)) => out.push(e),
+            Ok(Some(e)) => {
+                let last = matches!(e, AppEvent::Request(_));
+                out.push(e);
+                if last {
+                    break;
+                }
+            }
             _ => break,
         }
     }
@@ -162,7 +169,21 @@ async fn streams_through_unchanged_and_records_everything() {
     assert_eq!(get("accept-encoding").as_deref(), Some("identity"));
     assert_eq!(get(":path").as_deref(), Some("/v1/messages"));
 
-    let events = collect(&mut rx, 2).await;
+    let events = collect(&mut rx, 50).await;
+    // Live progress: first with the exact prompt, last marked done, all keyed by request id.
+    let streams: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            AppEvent::Stream(p) => Some(p),
+            _ => None,
+        })
+        .collect();
+    assert!(streams.len() >= 2, "{} stream events", streams.len());
+    assert!(streams.iter().all(|p| p.key == "req_test_1"));
+    assert_eq!(streams[0].usage.cache_read, 9000);
+    assert!(!streams[0].done);
+    assert!(streams.last().unwrap().done);
+    assert_eq!(streams.last().unwrap().session_id.as_deref(), Some("sess-42"));
     let limits = events.iter().find_map(|e| match e {
         AppEvent::Limits(l) => Some(l),
         _ => None,
@@ -207,7 +228,7 @@ async fn rate_limits_become_incidents() {
         post(port, r#"{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"please-429"}]}"#).await;
     assert_eq!(status, 429);
     assert!(String::from_utf8_lossy(&bytes).contains("rate_limit_error"));
-    let events = collect(&mut rx, 3).await;
+    let events = collect(&mut rx, 10).await;
     let inc = events.iter().find_map(|e| match e {
         AppEvent::Incident(i) => Some(i),
         _ => None,

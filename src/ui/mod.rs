@@ -359,7 +359,7 @@ async fn event_loop(
 
     loop {
         // 30 fps while animating; the configured rate while a spinner is visible; 1 Hz otherwise.
-        let busy = st.sessions.values().any(|s| s.alive() && s.state.is_busy());
+        let busy = !st.streams.is_empty() || st.sessions.values().any(|s| s.alive() && s.state.is_busy());
         let frame_every = if app.fx.running() || app.fx.quitting() {
             anim
         } else if busy {
@@ -442,7 +442,7 @@ async fn event_loop(
         if !cues.is_empty() {
             app.play_cues(cues);
         }
-        if st.expire_toasts() {
+        if st.housekeeping() {
             dirty = true;
         }
 
@@ -575,6 +575,15 @@ fn render_header_tall(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         sep(),
         Span::styled(format!("{waiting} waiting"), Style::new().fg(if waiting > 0 { t.warn } else { t.muted })),
     ]);
+    let streaming = st.live_streams().len();
+    let mut l2 = l2;
+    if streaming > 0 {
+        l2.spans.push(sep());
+        l2.spans.push(Span::styled(
+            format!("↯ {streaming} streaming {:.0} tok/s", st.stream_tps()),
+            Style::new().fg(t.ok).add_modifier(Modifier::BOLD),
+        ));
+    }
     let l3 = Line::from(vec![
         tag("TODAY"),
         Span::raw(" "),

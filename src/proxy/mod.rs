@@ -13,7 +13,7 @@ use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
@@ -28,7 +28,9 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::collect::jsonl::{usage_from_value, usage_tier};
 use crate::ipc::{AsyncSink, Frame as IpcFrame};
-use crate::model::{AppEvent, Collector, CollectorHealth, Incident, LimitSnapshot, Request, RequestShape, Sources};
+use crate::model::{
+    AppEvent, Collector, CollectorHealth, Incident, LimitSnapshot, Request, RequestShape, Sources, StreamProgress,
+};
 use crate::net::{Body, HttpsClient, full, https_client, json_response};
 use sse::SseParser;
 
@@ -74,6 +76,15 @@ impl Sink {
                 }
                 sink.send(&IpcFrame::incident(&i)).await;
             }
+        }
+    }
+
+    async fn stream(&self, p: StreamProgress) {
+        match self {
+            Sink::Channel(tx) => {
+                let _ = tx.send(AppEvent::Stream(Box::new(p)));
+            }
+            Sink::Ipc { sink, .. } => sink.send(&IpcFrame::stream(&p)).await,
         }
     }
 
@@ -186,12 +197,31 @@ struct Pending {
 }
 
 impl Pending {
-    fn finish(self, summary: &sse::StreamSummary, ttft_ms: Option<u64>) -> Request {
-        let key = self
-            .request_id
+    /// The request's merge key: the same for progress events and the final record.
+    fn key(&self, summary: &sse::StreamSummary) -> String {
+        self.request_id
             .clone()
             .or_else(|| summary.message_id.clone())
-            .unwrap_or_else(|| format!("proxy-{}", self.ts.timestamp_nanos_opt().unwrap_or(0)));
+            .unwrap_or_else(|| format!("proxy-{}", self.ts.timestamp_nanos_opt().unwrap_or(0)))
+    }
+
+    fn progress(&self, summary: &sse::StreamSummary, ttft_ms: Option<u64>, done: bool) -> StreamProgress {
+        let mut usage = summary.usage;
+        usage.output = summary.est_output();
+        StreamProgress {
+            key: self.key(summary),
+            ts: Utc::now(),
+            started: self.ts,
+            session_id: self.session.clone(),
+            model: summary.model.clone().unwrap_or_else(|| self.model.clone()),
+            usage,
+            ttft_ms,
+            done,
+        }
+    }
+
+    fn finish(self, summary: &sse::StreamSummary, ttft_ms: Option<u64>) -> Request {
+        let key = self.key(summary);
         let error = summary.error.clone().or_else(|| (self.status >= 400).then(|| format!("HTTP {}", self.status)));
         Request {
             key,
@@ -372,6 +402,10 @@ pub async fn handle(req: hyper::Request<Incoming>, px: Arc<Proxy>) -> Result<Res
             let mut ttft: Option<u64> = None;
             let mut first_byte: Option<u64> = None;
             let mut captured = px2.capture_dir.as_ref().map(|_| Vec::new());
+            // Live progress for the throughput view: once the prompt is known, then
+            // at most every 200 ms while output streams.
+            let mut last_emit: Option<Instant> = None;
+            let mut last_est = 0u64;
             while let Some(frame) = rbody.frame().await {
                 match frame {
                     Ok(frame) => {
@@ -382,6 +416,17 @@ pub async fn handle(req: hyper::Request<Incoming>, px: Arc<Proxy>) -> Result<Res
                             }
                             if let Some(c) = captured.as_mut() {
                                 c.extend_from_slice(d);
+                            }
+                            let est = parser.summary.est_output();
+                            let started = parser.summary.message_id.is_some();
+                            let due = match last_emit {
+                                None => started,
+                                Some(t) => est != last_est && t.elapsed() >= Duration::from_millis(200),
+                            };
+                            if is_messages && due {
+                                last_emit = Some(Instant::now());
+                                last_est = est;
+                                px2.sink.stream(pending.progress(&parser.summary, ttft, false)).await;
                             }
                         }
                         if tx.send(Ok(frame)).await.is_err() {
@@ -399,6 +444,9 @@ pub async fn handle(req: hyper::Request<Incoming>, px: Arc<Proxy>) -> Result<Res
             }
             drop(tx);
             if is_messages {
+                if last_emit.is_some() {
+                    px2.sink.stream(pending.progress(&parser.summary, ttft, true)).await;
+                }
                 let r = pending.finish(&parser.summary, ttft.or(first_byte));
                 if let Some(c) = captured {
                     capture(px2.capture_dir.clone(), format!("{cap_name}.response.sse"), Bytes::from(c)).await;

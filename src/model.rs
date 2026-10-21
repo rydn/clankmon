@@ -341,6 +341,22 @@ pub struct LimitSnapshot {
     pub session_id: Option<String>,
 }
 
+/// A request still streaming through the proxy. `usage` is cumulative: prompt
+/// fields are exact (from `message_start`), output is estimated until `done`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamProgress {
+    /// The request id, matching the final [`Request::key`].
+    pub key: String,
+    pub ts: DateTime<Utc>,
+    pub started: DateTime<Utc>,
+    pub session_id: Option<String>,
+    pub model: String,
+    pub usage: Usage,
+    pub ttft_ms: Option<u64>,
+    /// The stream ended; the final `Request` follows.
+    pub done: bool,
+}
+
 /// A 429 or quota rejection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Incident {
@@ -462,6 +478,7 @@ pub enum AppEvent {
     Tool(ToolCall),
     Procs(Vec<ProcInfo>),
     Limits(Box<LimitSnapshot>),
+    Stream(Box<StreamProgress>),
     Statusline(Box<StatuslineInfo>),
     Incident(Incident),
     /// Aggregated tool counts from the initial scan: (name, calls, failures, last use).

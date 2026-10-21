@@ -9,20 +9,20 @@ expression: "render(View::Overview, 80, 24)"
 │BLOCK 17:00→22:00 ▸ $22.89 ▸ 24M tok ▸ 212 req ▸ ends 2h30m                   │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭◢ THROUGHPUT ◣───────────────────────────────────────────────── 10s/col · 12m ╮
-│▲ PROMPT   67k tok/min  peak 1.9M  ■read ■write ■new                          │
-│2.0M┤▅   ▂       ┊    ▁     ▇┊ ▅ ▁▃ ▃▁ ▁ ▁    ▂ ▁▃▅  ┊   ▂    ▇  ┊  ▅    ▁   ┊│
-│▼ OUTPUT   189 tok/min  peak 19k  ■text ■thinking                             │
-│ 20k┤▄   ▂       ┊    ▃     ▇┊ ▃ ▂▄ ▂▄ ▂ ▂    ▂ ▂▇▄  ┊   ▂    ▆  ┊  ▁    ▁   ┊│
-│req 2.0/m ▸ $13.40/h ▸ hit 94% ▸ ttft 1.0s ▸ p50 12.1s ▸ err 0                │
+│▲ PROMPT  622k tok/min  peak 1.9M  ■read ■write ■new                          │
+│2.5M┤▄   ▂       ┊    ▁     ▆┊ ▄ ▁▂ ▂▁ ▁ ▁    ▂ ▁▃▄  ┊   ▂    ▆  ┊  ▄    ▁  ▆┊│
+│▼ OUTPUT   699 tok/min  peak 19k  ■text ■thinking  ↯ 2 streaming  84 tok/s    │
+│ 20k┤▄   ▂       ┊    ▃     ▇┊ ▃ ▂▄ ▂▄ ▂ ▂    ▂ ▂▇▄  ┊   ▂    ▆  ┊  ▁    ▁  ▁┊│
+│req 2.0/m ▸ $13.40/h ▸ hit 94% ▸ ttft 1.0s ▸ p50 12.1s ▸ gen 103 tok/s ▸ err 0│
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭◢ PROCESSES ◣─────────────────────────────── 4 live · 4 shown · sort activity ╮
 │  PID    SESSION        MODEL      STATE       CONTEXT   REQ   COST    LAST   │
 │⏸ 41111  deck-firmware  Sonnet 5.5 permission  ▱▱▱▱ 4.1% 187   $9.57   10s    │
-│⚙ 41037  night-city     Opus 5.5   Bash        ▰▱▱▱  18% 192   $20.28  5s     │
-│◐ 41074  ice-breaker    Fable 5.1  thinking    ▱▱▱▱ 9.6% 181   $40.47  10s    │
+│◐ 41074  ice-breaker    Fable 5.1  thinking    ▱▱▱▱ 9.6% 181   $40.47  0s     │
+│◐ 41037  night-city     Opus 5.5   thinking    ▰▱▱▱  18% 192   $20.28  0s     │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭◢ WIRE ◣───────────────────────────────────────────────── 700 requests loaded ╮
 │TIME     SESSION        MODEL       PROMPT OUT    COST    STOP          LAT   │
-│19:29:29 deck-firmware  Sonnet 5.5  51k    194    $0.04   tool use      1.0s  │
+│19:29:58 night-city     Opus 5.5    191k   ~1     ~$0.10  ▹▸▹ waiting   1.3s  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 1OVERVIEW 2SES 3REQ 4HIS 5LIM  ?Help qQuit sSort tTheme pPause    sort:activity

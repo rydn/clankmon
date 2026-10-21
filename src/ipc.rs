@@ -15,7 +15,7 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::collect::push;
-use crate::model::{AppEvent, Collector, CollectorHealth, Incident, LimitSnapshot, Request};
+use crate::model::{AppEvent, Collector, CollectorHealth, Incident, LimitSnapshot, Request, StreamProgress};
 
 /// Spool files larger than this are rotated so they never grow without bound.
 const SPOOL_MAX_BYTES: u64 = 16 * 1024 * 1024;
@@ -35,6 +35,7 @@ pub enum FrameKind {
     Request,
     Limits,
     Incident,
+    Stream,
 }
 
 impl Frame {
@@ -52,6 +53,10 @@ impl Frame {
 
     pub fn incident(i: &Incident) -> Self {
         Frame::new(FrameKind::Incident, serde_json::to_value(i).unwrap_or(Value::Null))
+    }
+
+    pub fn stream(p: &StreamProgress) -> Self {
+        Frame::new(FrameKind::Stream, serde_json::to_value(p).unwrap_or(Value::Null))
     }
 
     pub fn to_line(&self) -> String {
@@ -76,6 +81,9 @@ impl Frame {
                 .unwrap_or_default(),
             FrameKind::Incident => serde_json::from_value::<Incident>(self.payload)
                 .map(|i| vec![AppEvent::Incident(i)])
+                .unwrap_or_default(),
+            FrameKind::Stream => serde_json::from_value::<StreamProgress>(self.payload)
+                .map(|p| vec![AppEvent::Stream(Box::new(p))])
                 .unwrap_or_default(),
         }
     }

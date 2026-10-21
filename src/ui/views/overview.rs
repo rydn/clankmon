@@ -10,7 +10,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Cell, Row, StatefulWidget, Table, TableState};
 
 use crate::model::{Request, SessionState, WindowReading};
-use crate::state::{Session, State};
+use crate::state::{InFlight, Session, State};
 use crate::ui::fmt;
 use crate::ui::theme::{Theme, lerp};
 use crate::ui::widgets::{self, BarGraph, bar_graph, braille_area, hbar, line, mini_bar, neon_gauge, panel};
@@ -434,12 +434,21 @@ fn throughput(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     );
 
     if two {
-        line(
-            buf,
-            inner,
-            1 + gh,
-            &header("▼ OUTPUT", t.tertiary, onow, opeak, &[("text", t.l_output), ("thinking", t.l_thinking)]),
-        );
+        let mut out_header =
+            header("▼ OUTPUT", t.tertiary, onow, opeak, &[("text", t.l_output), ("thinking", t.l_thinking)]);
+        let live = st.live_streams();
+        if !live.is_empty() {
+            const SPARK: [&str; 4] = ["↯", "ϟ", "↯", "ϟ"];
+            out_header.spans.push(Span::styled(
+                format!(" {} {} streaming ", SPARK[(app.frames / 2 % 4) as usize], live.len()),
+                Style::new().fg(t.bg).bg(t.ok).add_modifier(Modifier::BOLD),
+            ));
+            out_header.spans.push(Span::styled(
+                format!(" {:.0} tok/s", st.stream_tps()),
+                Style::new().fg(t.ok).add_modifier(Modifier::BOLD),
+            ));
+        }
+        line(buf, inner, 1 + gh, &out_header);
         axis_gutter(buf, inner.x, inner.y + 2 + gh, gh, omax, app.log_scale, &t);
         let g2 = Rect::new(gx, inner.y + 2 + gh, n as u16, gh);
         bar_graph(
@@ -479,6 +488,11 @@ fn throughput(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         stats.push(sep());
         stats.push(Span::styled("p50 ", Style::new().fg(t.dim)));
         stats.push(Span::styled(fmt::ms(d), Style::new().fg(t.text)));
+    }
+    if let Some(g) = burn.gen_tps_p50 {
+        stats.push(sep());
+        stats.push(Span::styled("gen ", Style::new().fg(t.dim)));
+        stats.push(Span::styled(format!("{g:.0} tok/s"), Style::new().fg(t.text)));
     }
     stats.push(sep());
     stats.push(Span::styled(format!("err {errors}"), Style::new().fg(if errors > 0 { t.danger } else { t.dim })));
@@ -779,6 +793,58 @@ pub fn request_row<'a>(r: &Request, st: &State, t: &Theme, now: DateTime<Utc>, c
     Row::new(cells).style(if fresh { Style::new().bg(lerp(t.bg, t.primary, 0.12)) } else { Style::new() })
 }
 
+/// A request still streaming through the proxy, for the top of the wire.
+pub fn inflight_row<'a>(f: &InFlight, st: &State, t: &Theme, now: DateTime<Utc>, cols: Cols, frame: u64) -> Row<'a> {
+    const SPIN: [&str; 4] = ["▹▸▹", "▹▹▸", "▸▹▹", "▹▸▹"];
+    let session = f
+        .session_id
+        .as_ref()
+        .and_then(|id| st.sessions.get(id))
+        .map(|s| s.display_name())
+        .unwrap_or_else(|| "—".into());
+    let hot = Style::new().fg(t.bright).add_modifier(Modifier::BOLD);
+    let model = if f.model.is_empty() { "—".into() } else { st.pricing.label(&f.model) };
+    let status = if f.usage.output <= 1 && f.ttft_ms.is_none() {
+        format!("{} waiting", SPIN[(frame % 4) as usize])
+    } else {
+        format!("{} {:.0} t/s", SPIN[(frame % 4) as usize], f.tps)
+    };
+    let elapsed = fmt::ms((now - f.started).num_milliseconds().max(0) as u64);
+    let mut cells = vec![
+        Cell::from(fmt::clock(f.started)).style(Style::new().fg(t.ok)),
+        Cell::from(fmt::fit(&session, 14)).style(hot),
+        Cell::from(model).style(Style::new().fg(t.primary).add_modifier(Modifier::BOLD)),
+    ];
+    let out = format!("~{}", fmt::si(f.usage.output));
+    let cost = format!("~{}", fmt::money(f.cost));
+    if cols == Cols::Narrow {
+        cells.extend([
+            Cell::from(fmt::si(f.usage.prompt_total())).style(Style::new().fg(t.l_input)),
+            Cell::from(out).style(Style::new().fg(t.l_output).add_modifier(Modifier::BOLD)),
+            Cell::from(cost).style(Style::new().fg(t.tertiary)),
+            Cell::from(status).style(Style::new().fg(t.ok).add_modifier(Modifier::BOLD)),
+            Cell::from(elapsed).style(hot),
+        ]);
+    } else {
+        cells.extend([
+            Cell::from(fmt::si(f.usage.input)).style(Style::new().fg(t.l_input)),
+            Cell::from(fmt::si(f.usage.cache_read)).style(Style::new().fg(t.muted)),
+            Cell::from(fmt::si(f.usage.cache_write())).style(Style::new().fg(t.l_cache_write)),
+            Cell::from(out).style(Style::new().fg(t.l_output).add_modifier(Modifier::BOLD)),
+            Cell::from(cost).style(Style::new().fg(t.tertiary)),
+            Cell::from(status).style(Style::new().fg(t.ok).add_modifier(Modifier::BOLD)),
+            Cell::from(elapsed).style(hot),
+            Cell::from("·P·").style(Style::new().fg(t.ok)),
+            Cell::from(f.ttft_ms.map(|x| format!("ttft {}", fmt::ms(x))).unwrap_or_default())
+                .style(Style::new().fg(t.muted)),
+        ]);
+        if cols == Cols::WithKey {
+            cells.push(Cell::from(f.key.clone()).style(Style::new().fg(t.dim)));
+        }
+    }
+    Row::new(cells).style(Style::new().bg(lerp(t.bg, t.ok, 0.10)))
+}
+
 pub fn request_widths(cols: Cols) -> Vec<Constraint> {
     let mut w = vec![Constraint::Length(8), Constraint::Length(14), Constraint::Length(11)];
     match cols {
@@ -844,8 +910,9 @@ fn wire(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         return;
     }
     app.areas.wire_first_row = Rect::new(inner.x, inner.y + 1, inner.width, 1);
-    let recent = st.recent(inner.height as usize - 1);
-    if recent.is_empty() {
+    let live = st.live_streams();
+    let recent = st.recent((inner.height as usize - 1).saturating_sub(live.len()));
+    if recent.is_empty() && live.is_empty() {
         line(
             buf,
             inner,
@@ -858,7 +925,9 @@ fn wire(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         return;
     }
     let cols = Cols::for_width(inner.width, false);
-    let rows: Vec<Row> = recent.iter().map(|r| request_row(r, st, &t, now, cols)).collect();
+    let frame = app.frames;
+    let mut rows: Vec<Row> = live.iter().rev().map(|f| inflight_row(f, st, &t, now, cols, frame)).collect();
+    rows.extend(recent.iter().map(|r| request_row(r, st, &t, now, cols)));
     let table = Table::new(rows, request_widths(cols))
         .header(request_header(&t, cols))
         .column_spacing(1)

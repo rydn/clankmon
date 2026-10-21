@@ -3,7 +3,7 @@ source: tests/render.rs
 expression: "render(View::Limits, 160, 45)"
 ---
  ▗▛▜▖▜▛  ▗█▖ █▖▐▌▜▌▐▌█▖▟▌▗▛▙ █▖▐▌   PLAN  MAX · max 20x ▸ theme neon                                                                                   19:30:00 
- █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting                                                                                       
+ █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting ▸ ↯ 2 streaming 84 tok/s                                                              
  ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h                                                                                
   ▀▀ ▀▀▀▘▀ ▀ ▀ ▝▘▀▘▝▘▀ ▝▘ ▀▘ ▀ ▝▘   FEED  ●jsonl ●procs ●status ●hooks ●proxy ○otel ○oauth                                                                      
 ╭◢ UTILISATION ◣────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── last 24h · +/- span ╮

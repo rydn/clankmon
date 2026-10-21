@@ -132,6 +132,28 @@ impl Session {
     }
 }
 
+/// A request still streaming through the proxy.
+#[derive(Debug, Clone)]
+pub struct InFlight {
+    pub key: String,
+    pub session_id: Option<String>,
+    pub model: String,
+    pub started: DateTime<Utc>,
+    pub last: DateTime<Utc>,
+    /// Latest cumulative usage (output estimated until the stream ends).
+    pub usage: Usage,
+    pub cost: f64,
+    pub ttft_ms: Option<u64>,
+    /// Smoothed output tokens per second.
+    pub tps: f64,
+    pub done: bool,
+    /// What has already gone into the throughput series for this request.
+    recorded: Bucket,
+}
+
+/// Streams with no progress for this long are dropped (proxy restarted, IPC lost).
+const STALE_STREAM_SECS: i64 = 120;
+
 /// Best current reading per window, plus history for trends.
 #[derive(Debug, Clone, Default)]
 pub struct Limits {
@@ -198,6 +220,8 @@ pub struct State {
     pub sessions: HashMap<String, Session>,
     pub procs: Vec<ProcInfo>,
     pub limits: Limits,
+    /// Requests streaming through the proxy right now, by request id.
+    pub streams: BTreeMap<String, InFlight>,
     pub tools: HashMap<String, ToolStat>,
     tool_ids: HashMap<String, (String, bool)>,
     pub incidents: VecDeque<Incident>,
@@ -238,6 +262,7 @@ impl State {
             sessions: HashMap::new(),
             procs: Vec::new(),
             limits: Limits::default(),
+            streams: BTreeMap::new(),
             tools: HashMap::new(),
             tool_ids: HashMap::new(),
             incidents: VecDeque::new(),
@@ -287,6 +312,7 @@ impl State {
             AppEvent::Tool(t) => self.on_tool(t),
             AppEvent::Procs(p) => self.on_procs(p),
             AppEvent::Limits(l) => self.on_limits(*l),
+            AppEvent::Stream(p) => self.on_stream(*p),
             AppEvent::Statusline(s) => self.on_statusline(*s),
             AppEvent::Incident(i) => self.on_incident(i),
             AppEvent::ToolTotals(v) => {
@@ -356,7 +382,8 @@ impl State {
                 self.needs_sort = true;
             }
             let merged = self.requests[i].clone();
-            self.series.record(observed, &delta(&old, &merged));
+            let d = self.reconcile(&merged.key, delta(&old, &merged));
+            self.series.record(observed, &d);
             self.account(&merged, false);
             if merged.sources.0 & (Sources::PROXY | Sources::OTEL) != 0 {
                 self.persist_requests.push(merged);
@@ -376,13 +403,98 @@ impl State {
             if r.sources.0 & (Sources::PROXY | Sources::OTEL) != 0 {
                 self.persist_requests.push(r.clone());
             }
-            self.series.record(observed, &delta(&Request::default(), &r));
+            let d = self.reconcile(&r.key, delta(&Request::default(), &r));
+            self.series.record(observed, &d);
             self.account(&r, true);
             if self.live() {
                 self.fx.push(FxCue::NewRequest);
             }
             self.requests.push(r);
         }
+    }
+
+    /// A request's final record arrived: remove its stream and return the part
+    /// of `d` that the stream had not already put into the series.
+    fn reconcile(&mut self, key: &str, mut d: Bucket) -> Bucket {
+        if let Some(f) = self.streams.remove(key) {
+            d.subtract(&f.recorded);
+        }
+        d
+    }
+
+    fn on_stream(&mut self, p: StreamProgress) {
+        self.touch(Collector::Proxy);
+        // The final record already arrived (transcript can beat the proxy): nothing to add.
+        if self.index.contains_key(&p.key) {
+            self.streams.remove(&p.key);
+            return;
+        }
+        let observed = self.observed_at(p.ts);
+        let (cost, _) = self.pricing.cost(&p.model, &p.usage);
+        let f = self.streams.entry(p.key.clone()).or_insert_with(|| InFlight {
+            key: p.key.clone(),
+            session_id: p.session_id.clone(),
+            model: p.model.clone(),
+            started: p.started,
+            last: p.ts,
+            usage: Usage::default(),
+            cost: 0.0,
+            ttft_ms: None,
+            tps: 0.0,
+            done: false,
+            recorded: Bucket::default(),
+        });
+        let dt = (p.ts - f.last).num_milliseconds() as f64 / 1000.0;
+        if dt > 0.05 {
+            let inst = p.usage.output.saturating_sub(f.usage.output) as f64 / dt;
+            f.tps = if f.tps == 0.0 { inst } else { 0.6 * f.tps + 0.4 * inst };
+        }
+        let d = |a: u64, b: u64| b.saturating_sub(a);
+        let add = Bucket {
+            input: d(f.recorded.input, p.usage.input),
+            cache_read: d(f.recorded.cache_read, p.usage.cache_read),
+            cache_write: d(f.recorded.cache_write, p.usage.cache_write()),
+            output: d(f.recorded.output, p.usage.output),
+            thinking: 0,
+            requests: u64::from(f.recorded.requests == 0),
+            errors: 0,
+            cost: (cost - f.recorded.cost).max(0.0),
+        };
+        f.recorded.add(&add);
+        f.last = p.ts.max(f.last);
+        f.usage = p.usage;
+        f.cost = cost;
+        f.ttft_ms = p.ttft_ms.or(f.ttft_ms);
+        f.done |= p.done;
+        if f.session_id.is_none() {
+            f.session_id = p.session_id;
+        }
+        if !add.is_empty() || add.cost > 0.0 {
+            self.series.record(observed, &add);
+        }
+        if let Some(sid) = self.streams[&p.key].session_id.clone() {
+            let ts = p.ts;
+            let s = self.session_mut(&sid, ts);
+            if ts >= s.state_ts && s.state != SessionState::Waiting {
+                s.state = SessionState::Thinking;
+                s.state_ts = ts;
+            }
+            if ts > s.last_ts {
+                s.last_ts = ts;
+            }
+        }
+    }
+
+    /// Streams still generating (not yet done), oldest first.
+    pub fn live_streams(&self) -> Vec<&InFlight> {
+        let mut v: Vec<&InFlight> = self.streams.values().filter(|f| !f.done).collect();
+        v.sort_by(|a, b| a.started.cmp(&b.started).then(a.key.cmp(&b.key)));
+        v
+    }
+
+    /// Combined output tokens per second across live streams.
+    pub fn stream_tps(&self) -> f64 {
+        self.streams.values().filter(|f| !f.done).map(|f| f.tps).sum()
     }
 
     /// When the graphs should show tokens: the moment they were observed while
@@ -781,12 +893,13 @@ impl State {
         }
     }
 
-    /// Drop expired toasts; returns true when something changed.
-    pub fn expire_toasts(&mut self) -> bool {
+    /// Drop expired toasts and stalled streams; returns true when something changed.
+    pub fn housekeeping(&mut self) -> bool {
         let now = self.now();
-        let before = self.toasts.len();
+        let before = (self.toasts.len(), self.streams.len());
         self.toasts.retain(|t| now - t.ts < Duration::seconds(6));
-        before != self.toasts.len()
+        self.streams.retain(|_, f| now - f.last < Duration::seconds(STALE_STREAM_SECS));
+        before != (self.toasts.len(), self.streams.len())
     }
 
     /// Current 5h/7d reading, treating a passed reset as zero usage.
@@ -911,6 +1024,67 @@ mod tests {
         // Something clearly historical keeps its own time even while live.
         s.apply(AppEvent::Request(Box::new(req("ancient", 20, 7, Sources::JSONL))));
         assert_eq!(col(&s, 20).output, 7);
+    }
+
+    fn progress(key: &str, secs: i64, out: u64, done: bool) -> AppEvent {
+        AppEvent::Stream(Box::new(StreamProgress {
+            key: key.into(),
+            ts: ts(100) + Duration::seconds(secs),
+            started: ts(100),
+            session_id: Some("s1".into()),
+            model: "claude-opus-5-5".into(),
+            usage: Usage { input: 100, cache_read: 900, output: out, ..Default::default() },
+            ttft_ms: Some(800),
+            done,
+        }))
+    }
+
+    #[test]
+    fn streams_fill_the_series_live_and_reconcile_without_double_counting() {
+        let mut s = state();
+        s.scan.finished = true;
+        let total = |s: &State| {
+            s.series.columns(ts(103), 4, 60).iter().fold(Bucket::default(), |mut a, b| {
+                a.add(b);
+                a
+            })
+        };
+        for (i, out) in [1u64, 40, 90, 150].into_iter().enumerate() {
+            s.clock = Some(ts(100) + Duration::seconds(i as i64));
+            s.apply(progress("req_s", i as i64, out, false));
+        }
+        assert_eq!(s.live_streams().len(), 1);
+        assert!(s.stream_tps() > 40.0, "{}", s.stream_tps());
+        let t = total(&s);
+        assert_eq!((t.output, t.cache_read, t.requests), (150, 900, 1));
+        assert_eq!(s.sessions["s1"].state, SessionState::Thinking);
+
+        // The final record says 500 output tokens (thinking never streamed text).
+        s.clock = Some(ts(100) + Duration::seconds(5));
+        s.apply(progress("req_s", 5, 160, true));
+        assert!(s.live_streams().is_empty(), "done streams leave the live list");
+        let mut r = req("req_s", 100, 500, Sources::PROXY);
+        r.ts = ts(100);
+        s.apply(AppEvent::Request(Box::new(r)));
+        assert!(s.streams.is_empty());
+        let t = total(&s);
+        assert_eq!((t.output, t.input, t.cache_read, t.requests), (500, 100, 900, 1), "no double counting");
+        // A late transcript copy of the same request adds nothing more.
+        s.apply(AppEvent::Request(Box::new(req("req_s", 100, 500, Sources::JSONL))));
+        assert_eq!(total(&s).output, 500);
+        // Progress for an already-final request is ignored.
+        s.apply(progress("req_s", 6, 999, false));
+        assert!(s.streams.is_empty());
+        assert_eq!(total(&s).output, 500);
+    }
+
+    #[test]
+    fn stalled_streams_expire() {
+        let mut s = state();
+        s.apply(progress("req_x", 0, 10, false));
+        s.clock = Some(ts(100) + Duration::seconds(STALE_STREAM_SECS + 1));
+        assert!(s.housekeeping());
+        assert!(s.streams.is_empty());
     }
 
     #[test]

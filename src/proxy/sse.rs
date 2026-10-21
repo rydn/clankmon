@@ -20,6 +20,21 @@ pub struct StreamSummary {
     /// True once the first content block started (time to first token).
     pub saw_content: bool,
     pub events: u64,
+    /// Characters of text, thinking and tool input streamed so far.
+    pub streamed_chars: u64,
+}
+
+/// Roughly four characters per token for English text and code. Only an
+/// estimate for the live view; the final `message_delta` usage replaces it.
+pub const CHARS_PER_TOKEN: u64 = 4;
+
+impl StreamSummary {
+    /// Output tokens so far: the server's count when it has sent one, otherwise
+    /// an estimate from streamed characters. Hidden thinking streams no text, so
+    /// this runs low during thinking and the final count catches up.
+    pub fn est_output(&self) -> u64 {
+        self.usage.output.max(self.streamed_chars.div_ceil(CHARS_PER_TOKEN))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -82,7 +97,16 @@ impl SseParser {
                     }
                 }
             }
-            Some("content_block_delta") => s.saw_content = true,
+            Some("content_block_delta") => {
+                s.saw_content = true;
+                if let Some(d) = v.get("delta") {
+                    for k in ["text", "thinking", "partial_json"] {
+                        if let Some(t) = d.get(k).and_then(Value::as_str) {
+                            s.streamed_chars += t.chars().count() as u64;
+                        }
+                    }
+                }
+            }
             Some("message_delta") => {
                 if let Some(r) = v.pointer("/delta/stop_reason").and_then(Value::as_str) {
                     s.stop_reason = Some(r.to_string());
@@ -154,6 +178,20 @@ mod tests {
         assert_eq!(s.service_tier.as_deref(), Some("standard"));
         assert!(first_content_at.is_some());
         assert_eq!(s.events, 7);
+        // "Hello" streamed before the final count; after it, the real count wins.
+        assert_eq!(s.streamed_chars, 5);
+        assert_eq!(s.est_output(), 315);
+    }
+
+    #[test]
+    fn estimates_output_while_streaming() {
+        let mut p = SseParser::default();
+        p.feed(b"data: {\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"model\":\"x\",\"usage\":{\"input_tokens\":9,\"output_tokens\":1}}}\n\n");
+        p.feed(b"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"0123456789abcdefghij\"}}\n\n");
+        p.feed(b"data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"a\\\":1}\"}}\n\n");
+        assert_eq!(p.summary.streamed_chars, 27);
+        assert_eq!(p.summary.est_output(), 7);
+        assert_eq!(p.summary.usage.input, 9);
     }
 
     #[test]

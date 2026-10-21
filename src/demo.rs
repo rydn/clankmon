@@ -240,6 +240,16 @@ pub fn history(now: DateTime<Utc>, seed: u64) -> Vec<AppEvent> {
         resets_at: Some(now - Duration::days(2) + Duration::hours(3)),
         http_status: Some(429),
     }));
+    // Two requests mid-flight through the proxy: one generating, one awaiting its first token.
+    let gen_sim = SimStream {
+        tps: 84.0,
+        ttft: 0.9,
+        ..SimStream::new(&mut rng, &ss, 1, now - Duration::milliseconds(4200), 900_001)
+    };
+    let wait_sim =
+        SimStream { ttft: 2.5, ..SimStream::new(&mut rng, &ss, 0, now - Duration::milliseconds(1300), 900_002) };
+    ev.extend(stream_history(&gen_sim, &ss, now));
+    ev.extend(stream_history(&wait_sim, &ss, now));
     for c in [Collector::Jsonl, Collector::Procs, Collector::Statusline, Collector::Hooks, Collector::Proxy] {
         ev.push(AppEvent::Collector(c, CollectorHealth::Ok));
     }
@@ -247,42 +257,148 @@ pub fn history(now: DateTime<Utc>, seed: u64) -> Vec<AppEvent> {
     ev
 }
 
-/// Keep generating live traffic every few hundred milliseconds.
+/// A synthetic request streaming through the proxy.
+pub struct SimStream {
+    pub key: String,
+    pub session: usize,
+    pub started: DateTime<Utc>,
+    pub final_req: Request,
+    /// Output tokens per second while generating.
+    pub tps: f64,
+    /// Seconds before the first token.
+    pub ttft: f64,
+}
+
+impl SimStream {
+    pub fn new(rng: &mut Rng, ss: &[DemoSession], session: usize, started: DateTime<Utc>, n: u64) -> Self {
+        let mut final_req = request(rng, &ss[session], started, n);
+        final_req.ts = started;
+        final_req.sources = Sources(Sources::PROXY | Sources::JSONL);
+        final_req.sidechain = false;
+        SimStream {
+            key: final_req.key.clone(),
+            session,
+            started,
+            tps: 45.0 + rng.range(0, 90) as f64,
+            ttft: 0.6 + rng.range(0, 1400) as f64 / 1000.0,
+            final_req,
+        }
+    }
+
+    /// Visible output so far; thinking tokens never stream as text.
+    fn out_at(&self, now: DateTime<Utc>) -> u64 {
+        let t = (now - self.started).num_milliseconds() as f64 / 1000.0 - self.ttft;
+        let visible = self.final_req.usage.output - self.final_req.usage.thinking;
+        ((t.max(0.0) * self.tps) as u64).min(visible)
+    }
+
+    fn finished(&self, now: DateTime<Utc>) -> bool {
+        self.out_at(now) >= self.final_req.usage.output - self.final_req.usage.thinking
+    }
+
+    pub fn progress(&self, ss: &[DemoSession], now: DateTime<Utc>, done: bool) -> AppEvent {
+        let mut usage = self.final_req.usage;
+        usage.output = self.out_at(now).max(1);
+        usage.thinking = 0;
+        let elapsed = (now - self.started).num_milliseconds() as f64 / 1000.0;
+        AppEvent::Stream(Box::new(StreamProgress {
+            key: self.key.clone(),
+            ts: now,
+            started: self.started,
+            session_id: Some(ss[self.session].id.clone()),
+            model: ss[self.session].model.into(),
+            usage,
+            ttft_ms: (elapsed >= self.ttft).then_some((self.ttft * 1000.0) as u64),
+            done,
+        }))
+    }
+
+    pub fn finish(mut self, now: DateTime<Utc>) -> Request {
+        let dur = (now - self.started).num_milliseconds().max(1) as u64;
+        self.final_req.duration_ms = Some(dur);
+        self.final_req.ttft_ms = Some((self.ttft * 1000.0) as u64);
+        self.final_req
+    }
+}
+
+/// Progress events for a stream from its start up to `now`, every 250 ms.
+pub fn stream_history(sim: &SimStream, ss: &[DemoSession], now: DateTime<Utc>) -> Vec<AppEvent> {
+    let mut out = Vec::new();
+    let mut t = sim.started + Duration::milliseconds(150);
+    while t <= now {
+        out.push(sim.progress(ss, t, false));
+        t += Duration::milliseconds(250);
+    }
+    out
+}
+
+/// Keep generating live traffic: requests stream through a simulated proxy for a
+/// few seconds each, then land as final records.
 pub async fn live(tx: UnboundedSender<AppEvent>, seed: u64) {
     let mut rng = Rng::new(seed ^ 0x9e37_79b9);
     let ss = sessions();
     let mut n = 1_000_000;
     let mut five = 81.2;
+    let mut streams: Vec<SimStream> = Vec::new();
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(250));
     loop {
-        tokio::time::sleep(std::time::Duration::from_millis(rng.range(250, 1400))).await;
+        tick.tick().await;
         let now = Utc::now();
-        let s = &ss[rng.range(0, 3) as usize];
-        n += 1;
-        let r = request(&mut rng, s, now, n);
-        let state = match r.tools.first() {
-            Some(t) => SessionState::Tool(t.clone()),
-            None => SessionState::Thinking,
-        };
-        let mut batch = vec![
-            AppEvent::Request(Box::new(r)),
-            AppEvent::Activity(Activity {
-                session_id: s.id.clone(),
-                ts: now,
-                state,
-                cwd: None,
-                branch: None,
-                version: None,
-                model: None,
-                effort: None,
-                turns: u32::from(rng.chance(0.1)),
-                compactions: 0,
-            }),
-        ];
-        if rng.chance(0.2) {
+        let mut batch = Vec::new();
+        // Start a new request now and then, at most one per session at a time.
+        if rng.chance(0.09) {
+            let s = rng.range(0, 3) as usize;
+            if !streams.iter().any(|x| x.session == s) {
+                n += 1;
+                streams.push(SimStream::new(&mut rng, &ss, s, now, n));
+                batch.push(AppEvent::Activity(Activity {
+                    session_id: ss[s].id.clone(),
+                    ts: now,
+                    state: SessionState::Thinking,
+                    cwd: None,
+                    branch: None,
+                    version: None,
+                    model: None,
+                    effort: None,
+                    turns: u32::from(rng.chance(0.3)),
+                    compactions: 0,
+                }));
+            }
+        }
+        let mut i = 0;
+        while i < streams.len() {
+            if streams[i].finished(now) {
+                let sim = streams.swap_remove(i);
+                batch.push(sim.progress(&ss, now, true));
+                let session = sim.session;
+                let r = sim.finish(now);
+                let state = match r.tools.first() {
+                    Some(t) => SessionState::Tool(t.clone()),
+                    None => SessionState::Idle,
+                };
+                batch.push(AppEvent::Request(Box::new(r)));
+                batch.push(AppEvent::Activity(Activity {
+                    session_id: ss[session].id.clone(),
+                    ts: now,
+                    state,
+                    cwd: None,
+                    branch: None,
+                    version: None,
+                    model: None,
+                    effort: None,
+                    turns: 0,
+                    compactions: 0,
+                }));
+            } else {
+                batch.push(streams[i].progress(&ss, now, false));
+                i += 1;
+            }
+        }
+        if rng.chance(0.05) {
             five = (five + rng.range(0, 10) as f64 / 10.0).min(99.0);
             batch.push(AppEvent::Limits(Box::new(snapshot(now, five, 70.3, now))));
         }
-        if tx.send(AppEvent::Batch(batch)).is_err() {
+        if !batch.is_empty() && tx.send(AppEvent::Batch(batch)).is_err() {
             return;
         }
     }
