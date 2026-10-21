@@ -140,7 +140,13 @@ pub enum Cmd {
         #[arg(long, default_value_t = 45)]
         height: u16,
         /// Emit 24-bit ANSI colour
-        #[arg(long)]
+        #[arg(long, conflicts_with = "svg")]
         ansi: bool,
+        /// Emit an SVG image (vector glyphs, renders exactly on GitHub)
+        #[arg(long)]
+        svg: bool,
+        /// With --svg: draw a window frame with this title
+        #[arg(long, requires = "svg")]
+        title: Option<String>,
     },
 }

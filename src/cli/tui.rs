@@ -135,8 +135,24 @@ pub async fn run(cli: Cli, paths: Paths, mut cfg: Config) -> Result<()> {
     ui::run(app, st, rx, store, cfg.idle_fps).await
 }
 
-/// Load everything the TUI would show, render a single frame, return it as text.
-pub fn snapshot(cli: &Cli, paths: &Paths, cfg: &Config, view: &str, w: u16, h: u16, ansi: bool) -> Result<String> {
+/// Output format for `snapshot`.
+pub enum SnapFormat {
+    Text,
+    Ansi,
+    /// SVG, with an optional window title.
+    Svg(Option<String>),
+}
+
+/// Load everything the TUI would show, render a single frame, return it.
+pub fn snapshot(
+    cli: &Cli,
+    paths: &Paths,
+    cfg: &Config,
+    view: &str,
+    w: u16,
+    h: u16,
+    format: SnapFormat,
+) -> Result<String> {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
@@ -196,7 +212,23 @@ pub fn snapshot(cli: &Cli, paths: &Paths, cfg: &Config, view: &str, w: u16, h: u
     let mut term = Terminal::new(TestBackend::new(w, h))?;
     term.draw(|f| ui::render(f, &mut app, &st))?;
     let buf = term.backend().buffer();
-    Ok(if ansi { buffer_to_ansi(buf) } else { buffer_to_text(buf) })
+    Ok(match format {
+        SnapFormat::Text => buffer_to_text(buf),
+        SnapFormat::Ansi => buffer_to_ansi(buf),
+        SnapFormat::Svg(title) => crate::ui::svg::render(buf, &svg_options(&app.theme, title)),
+    })
+}
+
+/// SVG options matching a theme.
+pub fn svg_options(t: &Theme, title: Option<String>) -> crate::ui::svg::SvgOptions {
+    crate::ui::svg::SvgOptions {
+        chrome: title,
+        fg: t.text,
+        bg: if t.bg == ratatui::style::Color::Reset { ratatui::style::Color::Rgb(0, 0, 0) } else { t.bg },
+        accent: t.primary,
+        accent2: t.secondary,
+        ..Default::default()
+    }
 }
 
 fn buffer_to_text(buf: &ratatui::buffer::Buffer) -> String {

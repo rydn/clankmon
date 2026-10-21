@@ -7,8 +7,8 @@ expression: "render(View::Overview, 120, 40)"
  ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h                                        
   ▀▀ ▀▀▀▘▀ ▀ ▀ ▝▘▀▘▝▘▀ ▝▘ ▀▘ ▀ ▝▘   FEED  ●jsonl ●procs ●status ●hooks ●proxy ○otel ○oauth                              
 ╭◢ QUOTA ◣──────────────────────────── statusline 0s ago ╮╭◢ THROUGHPUT ◣──────────────────────────────── 10s/col · 9m ╮
-│5H  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▱▱▱▱▱▱▱   81%  ⟳1h37m ││▲ PROMPT  622k tok/min  peak 1.9M  ■read ■write ■new        │
-│                ⢠⣤⣤⣴⣶⣶ ALLOWED pace 68% ▸ 100% in 39m   ││2.5M┤     ▄┊           ┊           ┊        ▄  ┊          ▄┊│
+│5H  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▱▱▱▱▱▱▱   81%  ⟳1h37m ││▲ PROMPT  583k tok/min  peak 1.9M  ■read ■write ■new        │
+│                ⢠⣤⣤⣴⣶⣶ ALLOWED pace 68% ▸ 100% in 39m   ││2.5M┤     ▄┊           ┊           ┊        ▄  ┊          ▃┊│
 │                                                        ││   0┤     █┊ ▇ ▂▅ ▄▁ ▂ ▂    ▄ ▁▆█  ┊   ▄    █  ┊  █    ▂  █┊│
 │7D  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▱▱▱▱▱▱▱▱▱▱▱   70%  ⟳2d13h ││▼ OUTPUT   699 tok/min  peak 19k  ■text ■thinking  ↯ 2 strea│
 │                     ⢰ ALLOWED pace 64% ▸ 100% in 5h00m ││ 20k┤     ▇┊    ▁      ┊       ▇   ┊        ▃  ┊           ┊│
@@ -24,8 +24,8 @@ expression: "render(View::Overview, 120, 40)"
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭◢ WIRE ◣─────────────────────────────────────────────── 700 requests loaded ╮╭◢ MODELS · TOOLS ◣──────────────────────╮
 │TIME     SESSION        MODEL       PROMPT OUT    COST    STOP        LAT   ││TODAY BY MODEL                          │
-│19:29:58 night-city     Opus 5.5    191k   ~1     ~$0.10  ▹▸▹ waiting 1.3s  ││Fable 5.1  ███████████████████  $12.55  │
-│19:29:55 ice-breaker    Fable 5.1   117k   ~273   ~$0.35  ▹▸▹ 84 t/s  4.2s  ││Opus 5.5   ███████████▊          $7.73  │
+│19:29:58 night-city     Opus 5.5    183k   ~1     ~$0.04  ▹▸▹ waiting 1.3s  ││Fable 5.1  ███████████████████  $12.55  │
+│19:29:55 ice-breaker    Fable 5.1   102k   ~273   ~$0.08  ▹▸▹ 84 t/s  4.2s  ││Opus 5.5   ███████████▊          $7.73  │
 │19:29:29 deck-firmware  Sonnet 5.5  51k    194    $0.04   tool use    1.0s  ││Sonnet 5.5 █████▏                $3.36  │
 │19:28:39 night-city     Opus 5.5    199k   121    $0.12   end turn    1.6s  ││Haiku 4.5  ▌                     $0.29  │
 │19:27:33 ice-breaker    ↳Fable 5.1  98k    380    $0.08   end turn    1.5s  ││                                        │

@@ -9,8 +9,8 @@ expression: "render(View::Overview, 80, 24)"
 │BLOCK 17:00→22:00 ▸ $22.89 ▸ 24M tok ▸ 212 req ▸ ends 2h30m                   │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭◢ THROUGHPUT ◣───────────────────────────────────────────────── 10s/col · 12m ╮
-│▲ PROMPT  622k tok/min  peak 1.9M  ■read ■write ■new                          │
-│2.5M┤▄   ▂       ┊    ▁     ▆┊ ▄ ▁▂ ▂▁ ▁ ▁    ▂ ▁▃▄  ┊   ▂    ▆  ┊  ▄    ▁  ▆┊│
+│▲ PROMPT  583k tok/min  peak 1.9M  ■read ■write ■new                          │
+│2.5M┤▄   ▂       ┊    ▁     ▆┊ ▄ ▁▂ ▂▁ ▁ ▁    ▂ ▁▃▄  ┊   ▂    ▆  ┊  ▄    ▁  ▅┊│
 │▼ OUTPUT   699 tok/min  peak 19k  ■text ■thinking  ↯ 2 streaming  84 tok/s    │
 │ 20k┤▄   ▂       ┊    ▃     ▇┊ ▃ ▂▄ ▂▄ ▂ ▂    ▂ ▂▇▄  ┊   ▂    ▆  ┊  ▁    ▁  ▁┊│
 │req 2.0/m ▸ $13.40/h ▸ hit 94% ▸ ttft 1.0s ▸ p50 12.1s ▸ gen 103 tok/s ▸ err 0│
@@ -23,6 +23,6 @@ expression: "render(View::Overview, 80, 24)"
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭◢ WIRE ◣───────────────────────────────────────────────── 700 requests loaded ╮
 │TIME     SESSION        MODEL       PROMPT OUT    COST    STOP          LAT   │
-│19:29:58 night-city     Opus 5.5    191k   ~1     ~$0.10  ▹▸▹ waiting   1.3s  │
+│19:29:58 night-city     Opus 5.5    183k   ~1     ~$0.04  ▹▸▹ waiting   1.3s  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 1OVERVIEW 2SES 3REQ 4HIS 5LIM  ?Help qQuit sSort tTheme pPause    sort:activity

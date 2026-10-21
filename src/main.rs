@@ -98,8 +98,15 @@ fn run(cli: Cli, paths: Paths) -> Result<()> {
             })?;
             Ok(())
         }
-        Some(Cmd::Snapshot { ref view, width, height, ansi }) => {
-            print!("{}", cli::tui::snapshot(&cli, &paths, &cfg, view, width, height, ansi)?);
+        Some(Cmd::Snapshot { ref view, width, height, ansi, svg, ref title }) => {
+            let format = if svg {
+                cli::tui::SnapFormat::Svg(title.clone())
+            } else if ansi {
+                cli::tui::SnapFormat::Ansi
+            } else {
+                cli::tui::SnapFormat::Text
+            };
+            print!("{}", cli::tui::snapshot(&cli, &paths, &cfg, view, width, height, format)?);
             Ok(())
         }
         Some(Cmd::Statusline { .. }) | Some(Cmd::Hook) => unreachable!("handled before the runtime starts"),

@@ -2,6 +2,7 @@
 
 pub mod fmt;
 pub mod fx;
+pub mod svg;
 pub mod theme;
 pub mod views;
 pub mod widgets;
