@@ -282,7 +282,7 @@ pub struct ToolCall {
 }
 
 /// A live Claude Code process from `~/.claude/sessions/<pid>.json`.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ProcInfo {
     pub pid: u32,
     pub session_id: String,

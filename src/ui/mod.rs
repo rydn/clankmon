@@ -84,6 +84,36 @@ impl SortKey {
     }
 }
 
+/// Graph column widths, in seconds, for `+` / `-`.
+pub const ZOOM_LEVELS: [i64; 7] = [1, 5, 10, 30, 60, 300, 900];
+
+/// An axis ceiling with hysteresis: it rises at once so bars never clip, and
+/// falls only after the data has stayed below it for a while, so a single
+/// spike scrolling off doesn't make the whole graph jump.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AxisScale {
+    pub level: f64,
+    below_since: Option<Instant>,
+}
+
+impl AxisScale {
+    pub const HOLD: Duration = Duration::from_secs(20);
+
+    pub fn update(&mut self, target: f64) -> f64 {
+        if target >= self.level {
+            self.level = target;
+            self.below_since = None;
+        } else {
+            let since = *self.below_since.get_or_insert_with(Instant::now);
+            if since.elapsed() >= Self::HOLD {
+                self.level = target;
+                self.below_since = None;
+            }
+        }
+        self.level
+    }
+}
+
 /// Rects from the last frame, so effects can target widgets.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Areas {
@@ -105,6 +135,8 @@ pub struct App {
     pub paused: bool,
     pub log_scale: bool,
     pub bucket_secs: i64,
+    /// Throughput axis ceilings: prompt, output.
+    pub scales: [AxisScale; 2],
     pub limit_span_hours: i64,
     pub sort: SortKey,
     pub sel_proc: usize,
@@ -130,7 +162,8 @@ impl App {
             help: false,
             paused: false,
             log_scale: false,
-            bucket_secs: 60,
+            bucket_secs: 10,
+            scales: [AxisScale::default(); 2],
             limit_span_hours: 24,
             sort: SortKey::Activity,
             sel_proc: 0,
@@ -202,38 +235,29 @@ impl App {
             }
             KeyCode::Char('p') | KeyCode::Char(' ') => self.paused = !self.paused,
             KeyCode::Char('s') => self.sort = self.sort.next(),
-            KeyCode::Char('g') => self.log_scale = !self.log_scale,
+            KeyCode::Char('g') => {
+                self.log_scale = !self.log_scale;
+                self.scales = [AxisScale::default(); 2];
+            }
             KeyCode::Char('f') => self.fx.enabled = !self.fx.enabled,
             KeyCode::Char('+') | KeyCode::Char('=') => {
                 if self.view == View::Limits {
                     self.limit_span_hours = match self.limit_span_hours {
                         6 => 24,
-                        24 => 168,
                         _ => 168,
                     };
                 } else {
-                    self.bucket_secs = match self.bucket_secs {
-                        10 => 30,
-                        30 => 60,
-                        60 => 300,
-                        _ => 900,
-                    };
+                    self.zoom(1);
                 }
             }
             KeyCode::Char('-') | KeyCode::Char('_') => {
                 if self.view == View::Limits {
                     self.limit_span_hours = match self.limit_span_hours {
                         168 => 24,
-                        24 => 6,
                         _ => 6,
                     };
                 } else {
-                    self.bucket_secs = match self.bucket_secs {
-                        900 => 300,
-                        300 => 60,
-                        60 => 30,
-                        _ => 10,
-                    };
+                    self.zoom(-1);
                 }
             }
             KeyCode::Char('/') if self.view == View::Requests => self.filter_edit = true,
@@ -258,6 +282,16 @@ impl App {
             _ => {}
         }
         true
+    }
+
+    /// Step the graph column width through [`ZOOM_LEVELS`]; resets the axis.
+    fn zoom(&mut self, step: i64) {
+        let i = ZOOM_LEVELS.iter().position(|&z| z == self.bucket_secs).unwrap_or(2) as i64;
+        let j = (i + step).clamp(0, ZOOM_LEVELS.len() as i64 - 1) as usize;
+        if ZOOM_LEVELS[j] != self.bucket_secs {
+            self.bucket_secs = ZOOM_LEVELS[j];
+            self.scales = [AxisScale::default(); 2];
+        }
     }
 
     fn move_sel(&mut self, d: i64) {
@@ -333,7 +367,17 @@ async fn event_loop(
         } else {
             idle.max(Duration::from_secs(1))
         };
-        let wait = frame_every.saturating_sub(last_draw.elapsed());
+        // Ticks of 200 ms or slower land just after wall-clock multiples of their
+        // period (each second, each quarter second), so clock-aligned graph
+        // columns shift exactly on their boundary instead of drifting.
+        let aligned = frame_every >= Duration::from_millis(200);
+        let wait = if aligned {
+            let period = frame_every.as_millis() as u64;
+            let ms = chrono::Utc::now().timestamp_millis() as u64;
+            Duration::from_millis(period - ms % period + 5)
+        } else {
+            frame_every.saturating_sub(last_draw.elapsed())
+        };
         tokio::select! {
             ev = events.next() => {
                 match ev {
@@ -403,7 +447,11 @@ async fn event_loop(
         }
 
         // Throttle redraws during scan bursts; always redraw on the idle tick.
-        let due = last_draw.elapsed() >= frame_every;
+        let due = if aligned {
+            last_draw.elapsed() + frame_every / 3 >= frame_every
+        } else {
+            last_draw.elapsed() >= frame_every
+        };
         if (dirty && last_draw.elapsed() >= Duration::from_millis(40)) || due {
             st.ensure_sorted();
             terminal.draw(|f| render(f, app, st))?;

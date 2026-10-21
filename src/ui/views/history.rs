@@ -13,7 +13,7 @@ use crate::state::State;
 use crate::ui::App;
 use crate::ui::fmt;
 use crate::ui::theme::{Theme, lerp};
-use crate::ui::widgets::{hbar, line, panel, stacked_bars};
+use crate::ui::widgets::{BarGraph, bar_graph, hbar, line, panel};
 
 pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     let t = app.theme.clone();
@@ -71,15 +71,15 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         }
         let max = cols.iter().map(|c| c.iter().sum::<f64>()).fold(0.0, f64::max);
         let graph = Rect::new(inner.x, inner.y, inner.width, inner.height - 1);
-        stacked_bars(
-            buf,
-            graph,
-            &cols,
-            &[t.l_cache_read, t.l_cache_write, t.l_input, t.l_output],
+        let g = BarGraph {
+            columns: &cols,
+            colors: &[t.l_cache_read, t.l_cache_write, t.l_input, t.l_output],
             max,
-            app.log_scale,
-            &t,
-        );
+            log: app.log_scale,
+            live_last: false,
+            ticks: &[],
+        };
+        bar_graph(buf, graph, &g, &t);
         line(
             buf,
             inner,

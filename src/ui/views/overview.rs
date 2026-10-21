@@ -13,7 +13,7 @@ use crate::model::{Request, SessionState, WindowReading};
 use crate::state::{Session, State};
 use crate::ui::fmt;
 use crate::ui::theme::{Theme, lerp};
-use crate::ui::widgets::{self, braille_area, hbar, line, mini_bar, neon_gauge, panel, stacked_bars};
+use crate::ui::widgets::{self, BarGraph, bar_graph, braille_area, hbar, line, mini_bar, neon_gauge, panel};
 use crate::ui::{App, SortKey};
 use crate::windows::{self, FIVE_HOURS, SEVEN_DAYS};
 
@@ -305,72 +305,161 @@ fn window_rows(
 // THROUGHPUT
 // ---------------------------------------------------------------------------
 
-fn throughput(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
-    let t = &app.theme;
+/// Human label for a column width.
+fn width_label(secs: i64) -> String {
+    if secs < 60 { format!("{secs}s") } else { format!("{}m", secs / 60) }
+}
+
+/// Spacing of floor ticks for a column width, so ticks land every ~6-12 columns.
+fn tick_every(secs: i64) -> i64 {
+    match secs {
+        1 => 10,
+        5 => 60,
+        10 => 120,
+        30 => 300,
+        60 => 600,
+        300 => 3600,
+        _ => 3 * 3600,
+    }
+}
+
+/// A y-axis gutter: `max` at the top, half-way and zero, with an axis line.
+fn axis_gutter(buf: &mut Buffer, x: u16, y: u16, h: u16, max: f64, log: bool, t: &Theme) {
+    for row in 0..h {
+        let from_bottom = h - 1 - row;
+        let label = if row == 0 {
+            fmt::si_f(max)
+        } else if from_bottom == 0 {
+            "0".into()
+        } else if !log && h >= 3 && from_bottom == if h % 2 == 1 { h / 2 } else { h / 2 - 1 } {
+            fmt::si_f(max / 2.0)
+        } else {
+            String::new()
+        };
+        let tick = if label.is_empty() { "│" } else { "┤" };
+        buf.set_string(x, y + row, format!("{label:>4}"), Style::new().fg(t.muted));
+        buf.set_string(x + 4, y + row, tick, Style::new().fg(t.grid));
+    }
+}
+
+fn throughput(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
+    let t = app.theme.clone();
     let secs = app.bucket_secs;
-    let unit = match secs {
-        10 => "10s",
-        30 => "30s",
-        60 => "1m",
-        300 => "5m",
-        _ => "15m",
-    };
-    let note = Line::from(Span::styled(
-        format!(" col={unit}{} ", if app.log_scale { " log" } else { "" }),
-        Style::new().fg(t.dim),
-    ));
-    let inner = panel(buf, area, t, "THROUGHPUT", Some(note), false);
-    if inner.height < 3 || inner.width < 10 {
+    const GUTTER: u16 = 5;
+    let inner_w = area.width.saturating_sub(2 + GUTTER);
+    let span = fmt::dur_secs(secs * inner_w as i64);
+    let note = Line::from(vec![
+        Span::styled(format!(" {}/col · {span}", width_label(secs)), Style::new().fg(t.dim)),
+        Span::styled(if app.log_scale { " · log " } else { " " }, Style::new().fg(t.dim)),
+    ]);
+    let inner = panel(buf, area, &t, "THROUGHPUT", Some(note), false);
+    if inner.height < 3 || inner.width < GUTTER + 10 {
         return;
     }
     let now = st.now();
-    let n = inner.width as usize;
-    let reqs = st.since(now - Duration::seconds(secs * (n as i64 + 1)));
-    let buckets = windows::buckets(reqs.iter().copied(), now, n, secs);
-    let burn = windows::burn(reqs.iter().copied(), now, 10);
+    let n = (inner.width - GUTTER) as usize;
+    let cols = st.series.columns(now, n, secs);
     let per_min = 60.0 / secs as f64;
+    let first = now.timestamp().div_euclid(secs) * secs - (n as i64 - 1) * secs;
+    let every = tick_every(secs);
+    let ticks: Vec<bool> = (0..n as i64).map(|k| (first + k * secs).rem_euclid(every) == 0).collect();
 
-    // Two graphs need head+graph+head+graph+stats; fall back to one graph when short.
+    let rate = |v: u64| v as f64 * per_min;
+    let prompt_cols: Vec<Vec<f64>> =
+        cols.iter().map(|b| vec![rate(b.cache_read), rate(b.cache_write), rate(b.input)]).collect();
+    let out_cols: Vec<Vec<f64>> =
+        cols.iter().map(|b| vec![rate(b.output.saturating_sub(b.thinking)), rate(b.thinking)]).collect();
+    let ppeak = cols.iter().map(|b| rate(b.prompt())).fold(0.0, f64::max);
+    let opeak = cols.iter().map(|b| rate(b.output)).fold(0.0, f64::max);
+    // Linear axes ignore rare spikes (they clip with a ▲ cap); log axes show everything.
+    let ceiling = |vals: Vec<f64>, peak: f64| {
+        if app.log_scale { windows::nice_ceil(peak) } else { windows::robust_ceiling(&vals) }
+    };
+    let ptarget = ceiling(cols.iter().map(|b| rate(b.prompt())).collect(), ppeak);
+    let otarget = ceiling(cols.iter().map(|b| rate(b.output)).collect(), opeak);
+    let pmax = app.scales[0].update(ptarget);
+    let omax = app.scales[1].update(otarget);
+    // Smooth "now" rates: exponentially weighted, 30 s time constant.
+    let pnow = st.series.ewma_per_min(now, 30.0, |b| b.prompt());
+    let onow = st.series.ewma_per_min(now, 30.0, |b| b.output);
+
     let two = inner.height >= 5;
     let gh = if two { (inner.height - 3) / 2 } else { inner.height.saturating_sub(2).max(1) };
-    let prompt_cols: Vec<Vec<f64>> =
-        buckets.iter().map(|b| vec![b.input as f64, b.cache_write as f64, b.cache_read as f64]).collect();
-    let out_cols: Vec<Vec<f64>> =
-        buckets.iter().map(|b| vec![b.output.saturating_sub(b.thinking) as f64, b.thinking as f64]).collect();
-    let pmax = buckets.iter().map(|b| b.prompt()).max().unwrap_or(0) as f64;
-    let omax = buckets.iter().map(|b| b.output).max().unwrap_or(0) as f64;
+    let gx = inner.x + GUTTER;
 
-    let legend = |items: &[(&str, Color)]| -> Vec<Span<'static>> {
-        let mut v = Vec::new();
-        for (name, c) in items {
+    let header = |label: &str, color: Color, now_rate: f64, peak: f64, legend: &[(&str, Color)]| -> Line<'static> {
+        let mut v = vec![
+            Span::styled(label.to_string(), Style::new().fg(color).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!(" {:>5}", fmt::si_f(now_rate)),
+                Style::new().fg(t.bright).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" tok/min", Style::new().fg(t.muted)),
+            Span::styled(format!("  peak {}", fmt::si_f(peak)), Style::new().fg(t.dim)),
+            Span::raw("  "),
+        ];
+        for (name, c) in legend {
             v.push(Span::styled("■", Style::new().fg(*c)));
             v.push(Span::styled(format!("{name} "), Style::new().fg(t.muted)));
         }
-        v
+        Line::from(v)
     };
-    let mut head = vec![
-        Span::styled("▲ PROMPT ", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD)),
-        Span::styled(format!("{}/m", fmt::si_f(burn.prompt_per_min)), Style::new().fg(t.bright)),
-        Span::styled(format!(" pk {}/m  ", fmt::si_f(pmax * per_min)), Style::new().fg(t.dim)),
-    ];
-    head.extend(legend(&[("new", t.l_input), ("write", t.l_cache_write), ("read", t.l_cache_read)]));
-    line(buf, inner, 0, &Line::from(head));
-    let g1 = Rect::new(inner.x, inner.y + 1, inner.width, gh);
-    stacked_bars(buf, g1, &prompt_cols, &[t.l_input, t.l_cache_write, t.l_cache_read], pmax, app.log_scale, t);
+
+    line(
+        buf,
+        inner,
+        0,
+        &header(
+            "▲ PROMPT",
+            t.secondary,
+            pnow,
+            ppeak,
+            &[("read", t.l_cache_read), ("write", t.l_cache_write), ("new", t.l_input)],
+        ),
+    );
+    axis_gutter(buf, inner.x, inner.y + 1, gh, pmax, app.log_scale, &t);
+    let g1 = Rect::new(gx, inner.y + 1, n as u16, gh);
+    bar_graph(
+        buf,
+        g1,
+        &BarGraph {
+            columns: &prompt_cols,
+            colors: &[t.l_cache_read, t.l_cache_write, t.l_input],
+            max: pmax,
+            log: app.log_scale,
+            live_last: true,
+            ticks: &ticks,
+        },
+        &t,
+    );
 
     if two {
-        let mut head2 = vec![
-            Span::styled("▼ OUTPUT ", Style::new().fg(t.tertiary).add_modifier(Modifier::BOLD)),
-            Span::styled(format!("{}/m", fmt::si_f(burn.output_per_min)), Style::new().fg(t.bright)),
-            Span::styled(format!(" pk {}/m  ", fmt::si_f(omax * per_min)), Style::new().fg(t.dim)),
-        ];
-        head2.extend(legend(&[("text", t.l_output), ("thinking", t.l_thinking)]));
-        line(buf, inner, 1 + gh, &Line::from(head2));
-        let g2 = Rect::new(inner.x, inner.y + 2 + gh, inner.width, gh);
-        stacked_bars(buf, g2, &out_cols, &[t.l_output, t.l_thinking], omax, app.log_scale, t);
+        line(
+            buf,
+            inner,
+            1 + gh,
+            &header("▼ OUTPUT", t.tertiary, onow, opeak, &[("text", t.l_output), ("thinking", t.l_thinking)]),
+        );
+        axis_gutter(buf, inner.x, inner.y + 2 + gh, gh, omax, app.log_scale, &t);
+        let g2 = Rect::new(gx, inner.y + 2 + gh, n as u16, gh);
+        bar_graph(
+            buf,
+            g2,
+            &BarGraph {
+                columns: &out_cols,
+                colors: &[t.l_output, t.l_thinking],
+                max: omax,
+                log: app.log_scale,
+                live_last: true,
+                ticks: &ticks,
+            },
+            &t,
+        );
     }
 
-    let errors: u64 = buckets.iter().map(|b| b.errors).sum();
+    let reqs = st.since(now - Duration::minutes(10));
+    let burn = windows::burn(reqs.iter().copied(), now, 10);
+    let errors: u64 = cols.iter().map(|b| b.errors).sum();
     let sep = || Span::styled(" ▸ ", Style::new().fg(t.dim));
     let mut stats = vec![
         Span::styled("req ", Style::new().fg(t.dim)),

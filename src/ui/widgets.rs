@@ -151,67 +151,108 @@ fn dot_bit(col: usize, row: usize) -> u32 {
     }
 }
 
-/// bmon-style stacked bar graph: one column per sample, layers bottom-up,
-/// eighth-block resolution on the top cell of each layer stack.
-pub fn stacked_bars(
-    buf: &mut Buffer,
-    area: Rect,
-    columns: &[Vec<f64>],
-    colors: &[Color],
-    max: f64,
-    log: bool,
-    t: &Theme,
-) {
-    if area.width == 0 || area.height == 0 {
+/// A bmon-style stacked bar graph.
+pub struct BarGraph<'a> {
+    /// One entry per column, oldest first; each holds layer values bottom-up.
+    pub columns: &'a [Vec<f64>],
+    pub colors: &'a [Color],
+    /// Value at the top of the area.
+    pub max: f64,
+    pub log: bool,
+    /// Tint the last column: it is the live one, still filling up.
+    pub live_last: bool,
+    /// Per column: draw a time tick on the floor.
+    pub ticks: &'a [bool],
+}
+
+/// Draw a [`BarGraph`]. Columns are right-aligned; the newest is at the right edge.
+///
+/// Eighth-block resolution everywhere: where two layers meet inside one cell,
+/// the lower layer is the glyph's foreground and the upper layer its
+/// background, so thin layers stay visible on top of thick ones.
+pub fn bar_graph(buf: &mut Buffer, area: Rect, g: &BarGraph<'_>, t: &Theme) {
+    if area.width == 0 || area.height == 0 || g.colors.is_empty() {
         return;
     }
     let h = area.height as usize;
-    let total_eighths = h * 8;
-    let scale = |v: f64| -> f64 { if log { (v.max(0.0) + 1.0).ln() } else { v.max(0.0) } };
-    let smax = scale(max).max(1e-9);
+    let h8 = h * 8;
+    let scale = |v: f64| -> f64 { if g.log { (v.max(0.0) + 1.0).ln() } else { v.max(0.0) } };
+    let smax = scale(g.max).max(1e-9);
     let w = area.width as usize;
-    let start = columns.len().saturating_sub(w);
-    let cols = &columns[start..];
+    let start = g.columns.len().saturating_sub(w);
+    let cols = &g.columns[start..];
+    let ticks = &g.ticks[g.ticks.len().saturating_sub(cols.len())..];
     let offset = w - cols.len();
+    // The half-way gridline, placed exactly at 50 %: mid-cell when the height is
+    // odd, on a cell's top edge when it is even.
+    let (mid_row, mid_sym) = if h % 2 == 1 { (h / 2, "┈") } else { (h / 2 - 1, "▔") };
+    let mid = (h >= 3).then_some(mid_row);
+    let live_bg = lerp(t.bg, t.secondary, 0.10);
 
     for x in 0..w {
-        // Baseline grid dots so empty time still reads as time.
-        for y in 0..h {
-            if let Some(cell) = buf.cell_mut((area.x + x as u16, area.y + y as u16)) {
-                let sym = if y == h - 1 { "·" } else { " " };
-                cell.set_symbol(sym).set_fg(t.grid).set_bg(t.bg);
-            }
+        let ci = x.checked_sub(offset);
+        let is_live = g.live_last && ci == Some(cols.len().wrapping_sub(1));
+        let bg = if is_live { live_bg } else { t.bg };
+        let tick = ci.is_some_and(|i| ticks.get(i).copied().unwrap_or(false));
+        let gx = area.x + x as u16;
+        // Background: faint horizontal grid at the top and middle, and a
+        // vertical dotted line at each time tick. Nothing that looks like data.
+        for row in 0..h {
+            let y = area.y + (h - 1 - row) as u16;
+            let Some(cell) = buf.cell_mut((gx, y)) else { continue };
+            let sym = if tick {
+                "┊"
+            } else if Some(row) == mid {
+                mid_sym
+            } else {
+                " "
+            };
+            cell.set_symbol(sym).set_fg(t.grid).set_bg(bg);
         }
-        if x < offset {
-            continue;
-        }
-        let layers = &cols[x - offset];
-        let total: f64 = layers.iter().sum();
+        let Some(ci) = ci else { continue };
+        let layers = &cols[ci];
+        let total: f64 = layers.iter().map(|v| v.max(0.0)).sum();
         if total <= 0.0 {
             continue;
         }
-        // Scale the stack as a whole, then split it proportionally.
-        let stack_eighths = ((scale(total) / smax).clamp(0.0, 1.0) * total_eighths as f64).round() as usize;
-        let stack_eighths = stack_eighths.max(1);
+        let stack = (((scale(total) / smax).clamp(0.0, 1.0) * h8 as f64).round() as usize).max(1);
         let mut bounds = Vec::with_capacity(layers.len());
         let mut acc = 0.0;
         for v in layers {
-            acc += v;
-            bounds.push(((acc / total) * stack_eighths as f64).round() as usize);
+            acc += v.max(0.0);
+            bounds.push(((acc / total) * stack as f64).round() as usize);
         }
+        let overflow = scale(total) > smax * 1.0001;
+        let color = |i: usize| g.colors[i.min(g.colors.len() - 1)];
+        let layer_at = |e: usize| bounds.iter().position(|&b| b > e).unwrap_or(layers.len() - 1);
         for row in 0..h {
-            let y = area.y + (h - 1 - row) as u16;
-            let cell_lo = row * 8;
-            if cell_lo >= stack_eighths {
+            let lo = row * 8;
+            if lo >= stack {
                 break;
             }
-            let fill = (stack_eighths - cell_lo).min(8);
-            // Colour by the layer at the top of the filled part of this cell.
-            let probe = cell_lo + fill - 1;
-            let li = bounds.iter().position(|&b| probe < b).unwrap_or(layers.len() - 1);
-            if let Some(cell) = buf.cell_mut((area.x + x as u16, y)) {
-                cell.set_symbol(EIGHTHS_V[fill]).set_fg(colors[li.min(colors.len() - 1)]).set_bg(t.bg);
+            let top = stack.min(lo + 8);
+            let li = layer_at(lo);
+            let lower_end = bounds[li].min(top);
+            let (sym, fg, cbg) = if lower_end >= top {
+                // One layer fills this cell up to the top of the stack.
+                (EIGHTHS_V[top - lo], color(li), bg)
+            } else if top == lo + 8 {
+                // A full cell split between two layers.
+                (EIGHTHS_V[lower_end - lo], color(li), color(layer_at(lower_end)))
+            } else {
+                // The stack ends inside this cell: use the bigger layer's colour.
+                let upper = top - lower_end;
+                let c = if lower_end - lo >= upper { color(li) } else { color(layer_at(lower_end)) };
+                (EIGHTHS_V[top - lo], c, bg)
+            };
+            let y = area.y + (h - 1 - row) as u16;
+            if let Some(cell) = buf.cell_mut((gx, y)) {
+                cell.set_symbol(sym).set_fg(fg).set_bg(cbg);
             }
+        }
+        // Clipped by the axis ceiling: cap the column so it reads as "more".
+        if overflow && let Some(cell) = buf.cell_mut((gx, area.y)) {
+            cell.set_symbol("▲").set_fg(t.danger).set_bg(bg);
         }
     }
 }
@@ -287,16 +328,72 @@ mod tests {
     }
 
     #[test]
-    fn stacked_bars_fill_from_bottom() {
+    fn bar_graph_layers_and_live_column() {
         let t = Theme::neon();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 2, 2));
-        let cols = vec![vec![1.0, 1.0], vec![0.5, 0.0]];
-        stacked_bars(&mut buf, Rect::new(0, 0, 2, 2), &cols, &[Color::Red, Color::Blue], 2.0, false, &t);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 3, 2));
+        let cols = vec![vec![1.0, 1.0], vec![0.5, 0.0], vec![0.0, 0.0]];
+        let g = BarGraph {
+            columns: &cols,
+            colors: &[Color::Red, Color::Blue],
+            max: 2.0,
+            log: false,
+            live_last: true,
+            ticks: &[true, false, false],
+        };
+        bar_graph(&mut buf, Rect::new(0, 0, 3, 2), &g, &t);
         assert_eq!(buf[(0, 1)].symbol(), "█");
         assert_eq!(buf[(0, 1)].fg, Color::Red);
         assert_eq!(buf[(0, 0)].symbol(), "█");
         assert_eq!(buf[(0, 0)].fg, Color::Blue);
         assert_eq!(buf[(1, 1)].symbol(), "▄");
+        assert_eq!(buf[(1, 0)].symbol(), " ", "no gridline below three rows");
+        assert_eq!(buf[(2, 1)].symbol(), " ", "the floor stays empty so tiny bars read as data");
+        assert_ne!(buf[(2, 1)].bg, t.bg, "live column is tinted");
+    }
+
+    #[test]
+    fn bar_graph_caps_clipped_columns() {
+        let t = Theme::neon();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 2, 2));
+        let cols = vec![vec![5.0], vec![1.0]];
+        let g = BarGraph { columns: &cols, colors: &[Color::Red], max: 2.0, log: false, live_last: false, ticks: &[] };
+        bar_graph(&mut buf, Rect::new(0, 0, 2, 2), &g, &t);
+        assert_eq!(buf[(0, 0)].symbol(), "▲");
+        assert_eq!(buf[(0, 0)].fg, t.danger);
+        assert_eq!(buf[(1, 1)].symbol(), "█");
         assert_eq!(buf[(1, 0)].symbol(), " ");
+    }
+
+    #[test]
+    fn bar_graph_midline_sits_at_half() {
+        let t = Theme::neon();
+        for (h, row, sym) in [(3u16, 1u16, "┈"), (4, 2, "▔")] {
+            let mut buf = Buffer::empty(Rect::new(0, 0, 1, h));
+            let g =
+                BarGraph { columns: &[], colors: &[Color::Red], max: 1.0, log: false, live_last: false, ticks: &[] };
+            bar_graph(&mut buf, Rect::new(0, 0, 1, h), &g, &t);
+            // `row` counts from the top here.
+            assert_eq!(buf[(0, row)].symbol(), sym, "height {h}");
+        }
+    }
+
+    #[test]
+    fn bar_graph_splits_a_cell_between_layers() {
+        let t = Theme::neon();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 1, 1));
+        // 3/8 red then 5/8 blue in one full cell.
+        let cols = vec![vec![3.0, 5.0]];
+        let g = BarGraph {
+            columns: &cols,
+            colors: &[Color::Red, Color::Blue],
+            max: 8.0,
+            log: false,
+            live_last: false,
+            ticks: &[],
+        };
+        bar_graph(&mut buf, Rect::new(0, 0, 1, 1), &g, &t);
+        assert_eq!(buf[(0, 0)].symbol(), "▃");
+        assert_eq!(buf[(0, 0)].fg, Color::Red);
+        assert_eq!(buf[(0, 0)].bg, Color::Blue);
     }
 }

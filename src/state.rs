@@ -8,6 +8,7 @@ use chrono::{DateTime, Duration, Local, NaiveDate, Utc};
 
 use crate::model::*;
 use crate::pricing::Pricing;
+use crate::windows::{Bucket, Series};
 
 /// How long a session stays in the process list after its last activity
 /// when no live process backs it (desktop app, IDE, or ended).
@@ -192,6 +193,8 @@ pub struct State {
     sorted: Vec<usize>,
     needs_sort: bool,
     pub days: BTreeMap<NaiveDate, DayAgg>,
+    /// Per-second/per-minute throughput for the graphs.
+    pub series: Series,
     pub sessions: HashMap<String, Session>,
     pub procs: Vec<ProcInfo>,
     pub limits: Limits,
@@ -231,6 +234,7 @@ impl State {
             sorted: Vec::new(),
             needs_sort: false,
             days: BTreeMap::new(),
+            series: Series::default(),
             sessions: HashMap::new(),
             procs: Vec::new(),
             limits: Limits::default(),
@@ -339,6 +343,7 @@ impl State {
         if r.sources.has(Sources::OTEL) {
             self.touch(Collector::Otel);
         }
+        let observed = self.observed_at(r.ts);
         if let Some(&i) = self.index.get(&r.key) {
             let old = self.requests[i].clone();
             self.unaccount(&old);
@@ -351,6 +356,7 @@ impl State {
                 self.needs_sort = true;
             }
             let merged = self.requests[i].clone();
+            self.series.record(observed, &delta(&old, &merged));
             self.account(&merged, false);
             if merged.sources.0 & (Sources::PROXY | Sources::OTEL) != 0 {
                 self.persist_requests.push(merged);
@@ -370,12 +376,21 @@ impl State {
             if r.sources.0 & (Sources::PROXY | Sources::OTEL) != 0 {
                 self.persist_requests.push(r.clone());
             }
+            self.series.record(observed, &delta(&Request::default(), &r));
             self.account(&r, true);
             if self.live() {
                 self.fx.push(FxCue::NewRequest);
             }
             self.requests.push(r);
         }
+    }
+
+    /// When the graphs should show tokens: the moment they were observed while
+    /// live, so past columns never change; the record's own time during backfill
+    /// or for anything clearly historical (an old transcript found mid-run).
+    fn observed_at(&self, ts: DateTime<Utc>) -> DateTime<Utc> {
+        let now = self.now();
+        if self.live() && now - ts < Duration::minutes(5) { now } else { ts }
     }
 
     fn account(&mut self, r: &Request, new: bool) {
@@ -789,6 +804,21 @@ impl State {
     }
 }
 
+/// What a merge added to a request, for the throughput series.
+fn delta(old: &Request, new: &Request) -> Bucket {
+    let d = |a: u64, b: u64| b.saturating_sub(a);
+    Bucket {
+        input: d(old.usage.input, new.usage.input),
+        cache_read: d(old.usage.cache_read, new.usage.cache_read),
+        cache_write: d(old.usage.cache_write(), new.usage.cache_write()),
+        output: d(old.usage.output, new.usage.output),
+        thinking: d(old.usage.thinking, new.usage.thinking),
+        requests: u64::from(old.key.is_empty()),
+        errors: u64::from(new.is_error() && !old.is_error()),
+        cost: new.cost_usd - old.cost_usd,
+    }
+}
+
 fn push_history(h: &mut VecDeque<(DateTime<Utc>, f64)>, ts: DateTime<Utc>, pct: f64) {
     // Keep it ordered; statusline frames from several sessions interleave.
     if let Some(last) = h.back()
@@ -856,6 +886,31 @@ mod tests {
         assert_eq!(today.usage.output, 500);
         assert!((today.cost - s.requests[0].cost_usd).abs() < 1e-12);
         assert_eq!(s.persist_requests.len(), 1, "only the proxy-tagged merge persists");
+    }
+
+    #[test]
+    fn series_dates_live_tokens_when_observed_and_never_rewrites_the_past() {
+        let mut s = state();
+        // Backfill: dated at the record's timestamp.
+        s.apply(AppEvent::Request(Box::new(req("old", 40, 100, Sources::JSONL))));
+        // The one-minute column containing ts(min).
+        let col = |s: &State, min: i64| s.series.columns(ts(min), 1, 60)[0];
+        assert_eq!(col(&s, 40).output, 100);
+        s.scan.finished = true;
+        // Live: a request stamped two minutes ago lands in the current column...
+        s.apply(AppEvent::Request(Box::new(req("live", 98, 50, Sources::JSONL))));
+        assert_eq!(col(&s, 98).output, 0);
+        assert_eq!(col(&s, 100).output, 50);
+        assert_eq!(col(&s, 100).requests, 1);
+        // ...and a later merge adds only the delta, now, without touching earlier columns.
+        s.clock = Some(ts(101));
+        s.apply(AppEvent::Request(Box::new(req("live", 98, 80, Sources::PROXY))));
+        assert_eq!(col(&s, 100).output, 50);
+        assert_eq!(col(&s, 101).output, 30);
+        assert_eq!(col(&s, 101).requests, 0);
+        // Something clearly historical keeps its own time even while live.
+        s.apply(AppEvent::Request(Box::new(req("ancient", 20, 7, Sources::JSONL))));
+        assert_eq!(col(&s, 20).output, 7);
     }
 
     #[test]

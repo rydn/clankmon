@@ -93,11 +93,12 @@ fn parse_ps(text: &str) -> HashMap<u32, (f32, u64)> {
         .collect()
 }
 
-/// Poll the registry every second; `ps` every fifth tick.
+/// Poll the registry every second and `ps` every fifth tick; send only changes.
 pub async fn run(dir: PathBuf, tx: UnboundedSender<AppEvent>) {
     let mut tick = tokio::time::interval(Duration::from_secs(1));
     let mut n: u64 = 0;
     let mut last_stats: HashMap<u32, (f32, u64)> = HashMap::new();
+    let mut last_sent: Option<Vec<ProcInfo>> = None;
     let _ = tx.send(AppEvent::Collector(Collector::Procs, CollectorHealth::Ok));
     loop {
         tick.tick().await;
@@ -119,8 +120,15 @@ pub async fn run(dir: PathBuf, tx: UnboundedSender<AppEvent>) {
         .await;
         if let Ok((procs, stats)) = res {
             last_stats = stats;
-            if tx.send(AppEvent::Procs(procs)).is_err() {
-                return;
+            // Only send changes (plus a 30 s heartbeat for stale-state checks):
+            // every send triggers a redraw, and a fixed 1 s send at its own
+            // phase would pre-empt the UI's clock-aligned tick.
+            let changed = last_sent.as_ref() != Some(&procs);
+            if changed || n.is_multiple_of(30) {
+                if tx.send(AppEvent::Procs(procs.clone())).is_err() {
+                    return;
+                }
+                last_sent = Some(procs);
             }
         }
         n += 1;
