@@ -2,6 +2,20 @@
   "version": 1,
   "sources": [
     {
+      "name": "anthropic",
+      "kind": "url",
+      "addedAt": "2026-10-21T20:32:28.818Z",
+      "urls": [
+        "https://docs.anthropic.com/en/api/overview"
+      ],
+      "provider": "api:api.anthropic.com",
+      "title": "Claude API",
+      "crawl": {
+        "depth": 2,
+        "maxPages": 150
+      }
+    },
+    {
       "name": "claude-code-monitoring",
       "kind": "url",
       "addedAt": "2026-10-21T19:25:00.496Z",
@@ -41,6 +55,52 @@
       "tags": [
         "rust"
       ]
+    },
+    {
+      "name": "deploy-config",
+      "kind": "path",
+      "addedAt": "2026-10-21T20:32:28.818Z",
+      "path": ".",
+      "glob": [
+        "**/*.tf",
+        "**/*.tfvars.example",
+        "k8s/**/*.y?(a)ml",
+        "manifests/**/*.y?(a)ml",
+        "helm/**/*.y?(a)ml",
+        "charts/**/*.y?(a)ml",
+        "docker-compose*.y?(a)ml",
+        "compose*.y?(a)ml",
+        ".github/workflows/*.y?(a)ml"
+      ],
+      "title": "Terraform, Kubernetes, Helm, Compose and CI workflow files"
+    },
+    {
+      "name": "docs",
+      "kind": "path",
+      "addedAt": "2026-10-21T20:32:28.818Z",
+      "path": "docs",
+      "glob": [
+        "**/*.md",
+        "**/*.mdx",
+        "**/*.rst",
+        "**/*.txt"
+      ],
+      "title": "docs/ directory"
+    },
+    {
+      "name": "github",
+      "kind": "url",
+      "addedAt": "2026-10-21T20:32:28.818Z",
+      "urls": [
+        "https://docs.github.com/en/rest",
+        "https://docs.github.com/en/actions"
+      ],
+      "provider": "files:github-actions",
+      "title": "GitHub REST API & Actions",
+      "crawl": {
+        "depth": 2,
+        "maxPages": 150
+      }
     },
     {
       "name": "hyper",
@@ -103,6 +163,17 @@
         "rust",
         "tui"
       ]
+    },
+    {
+      "name": "readme",
+      "kind": "path",
+      "addedAt": "2026-10-21T20:32:28.818Z",
+      "path": ".",
+      "glob": [
+        "CLAUDE.md",
+        "README.md"
+      ],
+      "title": "project readme and top-level guides"
     },
     {
       "name": "rusqlite",
