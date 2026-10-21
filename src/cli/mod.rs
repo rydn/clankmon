@@ -130,4 +130,17 @@ pub enum Cmd {
     },
     /// Print an example config file
     Config,
+    /// Render one frame of the UI to stdout (plain text, or --ansi for colour)
+    Snapshot {
+        /// overview, sessions, requests, history or limits
+        #[arg(long, default_value = "overview")]
+        view: String,
+        #[arg(long, default_value_t = 160)]
+        width: u16,
+        #[arg(long, default_value_t = 45)]
+        height: u16,
+        /// Emit 24-bit ANSI colour
+        #[arg(long)]
+        ansi: bool,
+    },
 }

@@ -69,7 +69,8 @@ pub fn hm(t: DateTime<Utc>) -> String {
 }
 
 pub fn pct(p: f64) -> String {
-    if p < 10.0 { format!("{p:.1}%") } else { format!("{p:.0}%") }
+    // One decimal near the ends, so 99.6% never rounds up to a misleading 100%.
+    if p < 10.0 || (99.0..100.0).contains(&p) { format!("{p:.1}%") } else { format!("{p:.0}%") }
 }
 
 /// Left-truncate with an ellipsis to fit `w` display columns.
@@ -105,5 +106,7 @@ mod tests {
         assert_eq!(ms(2310), "2.3s");
         assert_eq!(fit("clankmon-monitor", 8), "clankmo…");
         assert_eq!(pct(4.25), "4.2%");
+        assert_eq!(pct(99.62), "99.6%");
+        assert_eq!(pct(100.0), "100%");
     }
 }

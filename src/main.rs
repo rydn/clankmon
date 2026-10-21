@@ -98,6 +98,10 @@ fn run(cli: Cli, paths: Paths) -> Result<()> {
             })?;
             Ok(())
         }
+        Some(Cmd::Snapshot { ref view, width, height, ansi }) => {
+            print!("{}", cli::tui::snapshot(&cli, &paths, &cfg, view, width, height, ansi)?);
+            Ok(())
+        }
         Some(Cmd::Statusline { .. }) | Some(Cmd::Hook) => unreachable!("handled before the runtime starts"),
         None => {
             let _guard = init_logging(&paths);

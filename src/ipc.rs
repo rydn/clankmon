@@ -187,6 +187,20 @@ pub async fn serve(listener: UnixListener, tx: UnboundedSender<AppEvent>) {
     }
 }
 
+/// Read the spool without clearing it (for `snapshot`).
+pub fn peek_spool(spool: &Path) -> Vec<AppEvent> {
+    let mut events = Vec::new();
+    for path in [spool.with_extension("old.jsonl"), spool.to_path_buf()] {
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        for line in text.lines() {
+            if let Ok(frame) = serde_json::from_str::<Frame>(line) {
+                events.extend(frame.into_events());
+            }
+        }
+    }
+    events
+}
+
 /// Read and clear the spool. Returns events in file order.
 pub fn drain_spool(spool: &Path) -> Vec<AppEvent> {
     let mut events = Vec::new();

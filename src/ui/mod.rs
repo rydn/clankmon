@@ -474,14 +474,15 @@ fn render_header_tall(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     let sep = || Span::styled(" ▸ ", Style::new().fg(t.dim));
     let val = |s: String| Span::styled(s, Style::new().fg(t.bright));
     let mut plan = st.plan.clone().unwrap_or_else(|| "local".into()).to_uppercase();
-    if let Some(tier) = &st.tier {
-        plan = format!("{plan} · {}", tier.replace("default_claude_", "").replace('_', " "));
+    // `default_claude_max_20x` -> "max 20x"; the plain `default_claude_ai` tier adds nothing.
+    if let Some(tier) = st.tier.as_deref().map(|t| t.replace("default_claude_", "")).filter(|t| t != "ai") {
+        plan = format!("{plan} · {}", tier.replace('_', " "));
     }
     let l1 = Line::from(vec![tag("PLAN"), Span::raw(" "), val(plan), sep(), Span::styled(format!("theme {}", t.name), Style::new().fg(t.muted))]);
     let l2 = Line::from(vec![
         tag("LIVE"),
         Span::raw(" "),
-        val(format!("{} sessions", sessions.len())),
+        val(format!("{} session{}", sessions.len(), if sessions.len() == 1 { "" } else { "s" })),
         sep(),
         Span::styled(format!("{busy} busy"), Style::new().fg(if busy > 0 { t.ok } else { t.muted })),
         sep(),

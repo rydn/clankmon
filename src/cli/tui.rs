@@ -134,3 +134,131 @@ pub async fn run(cli: Cli, paths: Paths, mut cfg: Config) -> Result<()> {
 
     ui::run(app, st, rx, store, cfg.idle_fps).await
 }
+
+/// Load everything the TUI would show, render a single frame, return it as text.
+pub fn snapshot(cli: &Cli, paths: &Paths, cfg: &Config, view: &str, w: u16, h: u16, ansi: bool) -> Result<String> {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+
+    let view = match view {
+        "sessions" => ui::View::Sessions,
+        "requests" => ui::View::Requests,
+        "history" => ui::View::History,
+        "limits" => ui::View::Limits,
+        _ => ui::View::Overview,
+    };
+    let pricing = Arc::new(Pricing::with_overrides(&cfg.pricing_overrides));
+    let theme = Theme::by_name(cli.theme.as_deref().unwrap_or(&cfg.theme));
+    let mut st = if cli.demo {
+        let mut st = State::new(pricing);
+        st.plan = Some("max".into());
+        for e in demo::history(Utc::now(), 7) {
+            st.apply(e);
+        }
+        st
+    } else {
+        let mut st = crate::cli::export::load(paths, cli.days.unwrap_or(cfg.history_days), pricing.clone());
+        if let Some(c) = oauth::read_credentials(&paths.credentials_file()) {
+            st.plan = c.subscription;
+            st.tier = c.tier;
+        }
+        if let Ok(conn) = store::open(&paths.db())
+            && let Ok(events) = store::load_recent(&conn, 35, Utc::now())
+        {
+            for e in events {
+                st.apply(e);
+            }
+        }
+        for e in ipc::peek_spool(&paths.spool()) {
+            st.apply(e);
+        }
+        if let Some(sc) = statscache::load(&paths.stats_cache()) {
+            st.apply(AppEvent::StatsCache(sc));
+        }
+        let mut procs = procs::read_sessions(&paths.sessions());
+        let stats = procs::ps_stats(&procs.iter().map(|p| p.pid).collect::<Vec<_>>());
+        for p in &mut procs {
+            if let Some((c, r)) = stats.get(&p.pid) {
+                p.cpu_pct = Some(*c);
+                p.rss_kb = Some(*r);
+            }
+        }
+        st.apply(AppEvent::Procs(procs));
+        st.apply(AppEvent::Collector(Collector::Jsonl, CollectorHealth::Ok));
+        st
+    };
+    st.ensure_sorted();
+    st.toasts.clear();
+    st.fx.clear();
+    let mut app = App::new(theme, false);
+    app.truecolor = true;
+    app.view = view;
+    let mut term = Terminal::new(TestBackend::new(w, h))?;
+    term.draw(|f| ui::render(f, &mut app, &st))?;
+    let buf = term.backend().buffer();
+    Ok(if ansi { buffer_to_ansi(buf) } else { buffer_to_text(buf) })
+}
+
+fn buffer_to_text(buf: &ratatui::buffer::Buffer) -> String {
+    let mut out = String::new();
+    for y in 0..buf.area.height {
+        let row: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol().to_string()).collect();
+        out.push_str(row.trim_end());
+        out.push('\n');
+    }
+    out
+}
+
+fn buffer_to_ansi(buf: &ratatui::buffer::Buffer) -> String {
+    use ratatui::style::{Color, Modifier};
+    let sgr = |c: Color, fg: bool| -> String {
+        let base = if fg { 38 } else { 48 };
+        match c {
+            Color::Rgb(r, g, b) => format!("\x1b[{base};2;{r};{g};{b}m"),
+            Color::Indexed(i) => format!("\x1b[{base};5;{i}m"),
+            Color::Reset => format!("\x1b[{}m", if fg { 39 } else { 49 }),
+            other => {
+                // Named colours: map through the 16-colour indexes.
+                let idx = match other {
+                    Color::Black => 0,
+                    Color::Red => 1,
+                    Color::Green => 2,
+                    Color::Yellow => 3,
+                    Color::Blue => 4,
+                    Color::Magenta => 5,
+                    Color::Cyan => 6,
+                    Color::Gray => 7,
+                    Color::DarkGray => 8,
+                    Color::LightRed => 9,
+                    Color::LightGreen => 10,
+                    Color::LightYellow => 11,
+                    Color::LightBlue => 12,
+                    Color::LightMagenta => 13,
+                    Color::LightCyan => 14,
+                    _ => 15,
+                };
+                format!("\x1b[{base};5;{idx}m")
+            }
+        }
+    };
+    let mut out = String::new();
+    for y in 0..buf.area.height {
+        let mut last: Option<(Color, Color, Modifier)> = None;
+        for x in 0..buf.area.width {
+            let c = &buf[(x, y)];
+            let key = (c.fg, c.bg, c.modifier);
+            if last != Some(key) {
+                out.push_str("\x1b[0m");
+                out.push_str(&sgr(c.fg, true));
+                out.push_str(&sgr(c.bg, false));
+                if c.modifier.contains(Modifier::BOLD) {
+                    out.push_str("\x1b[1m");
+                }
+                last = Some(key);
+            }
+            out.push_str(c.symbol());
+        }
+        out.push_str("\x1b[0m\n");
+    }
+    out
+}
