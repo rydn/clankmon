@@ -47,9 +47,6 @@ http-body-util = "0.1"
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "http2", "ring", "webpki-roots", "tls12", "logging"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "3"
-
 [dev-dependencies]
 insta = "1"
 tempfile = "3"

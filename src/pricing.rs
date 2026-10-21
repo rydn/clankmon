@@ -86,10 +86,7 @@ impl Pricing {
     /// Longest-prefix match on the normalised id.
     pub fn lookup(&self, model: &str) -> Option<&ModelPrice> {
         let id = normalize_model(model);
-        self.models
-            .iter()
-            .filter(|m| id.starts_with(&m.matcher))
-            .max_by_key(|m| m.matcher.len())
+        self.models.iter().filter(|m| id.starts_with(&m.matcher)).max_by_key(|m| m.matcher.len())
     }
 
     /// Returns (cost, estimated).
@@ -183,13 +180,7 @@ mod tests {
     #[test]
     fn cost_matches_hand_calculation() {
         // The assistant turn observed in this session's transcript.
-        let u = Usage {
-            input: 2,
-            output: 1915,
-            cache_read: 25235,
-            cache_write_1h: 36262,
-            ..Default::default()
-        };
+        let u = Usage { input: 2, output: 1915, cache_read: 25235, cache_write_1h: 36262, ..Default::default() };
         let (c, est) = Pricing::default().cost("claude-fable-5-1", &u);
         let expected = (2.0 * 10.0 + 1915.0 * 50.0 + 25235.0 * 0.25 + 36262.0 * 20.0) / 1e6;
         assert!(!est);

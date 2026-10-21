@@ -20,8 +20,7 @@ use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::model::{
-    Activity, AppEvent, Collector, CollectorHealth, Incident, Request, SessionState, Sources,
-    ToolCall, Usage,
+    Activity, AppEvent, Collector, CollectorHealth, Incident, Request, SessionState, Sources, ToolCall, Usage,
 };
 use crate::pricing::Pricing;
 
@@ -194,10 +193,7 @@ impl RawUsage {
             cache_read: self.cache_read_input_tokens,
             cache_write_5m: w5,
             cache_write_1h: w1,
-            thinking: self
-                .output_tokens_details
-                .as_ref()
-                .map_or(0, |d| d.thinking_tokens),
+            thinking: self.output_tokens_details.as_ref().map_or(0, |d| d.thinking_tokens),
         }
     }
 }
@@ -209,9 +205,7 @@ pub fn usage_from_value(v: &serde_json::Value) -> Usage {
 
 /// The `service_tier` / `speed` fields of an API `usage` object.
 pub fn usage_tier(v: &serde_json::Value) -> (Option<String>, Option<String>) {
-    RawUsage::deserialize(v)
-        .map(|r| (r.service_tier, r.speed))
-        .unwrap_or_default()
+    RawUsage::deserialize(v).map(|r| (r.service_tier, r.speed)).unwrap_or_default()
 }
 
 /// Cheap pre-filter: only these line types matter, and a substring check is far
@@ -315,10 +309,7 @@ fn assistant_events(
 
     if let Some(raw) = &msg.usage {
         let usage = raw.to_usage();
-        let key = own(&line.request_id)
-            .or_else(|| own(&msg.id))
-            .or_else(|| own(&line.uuid))
-            .unwrap_or_default();
+        let key = own(&line.request_id).or_else(|| own(&msg.id)).or_else(|| own(&line.uuid)).unwrap_or_default();
         if !key.is_empty() && model != "<synthetic>" {
             let (cost, estimated) = pricing.cost(&model, &usage);
             out.push(AppEvent::Request(Box::new(Request {
@@ -353,9 +344,7 @@ fn assistant_events(
         SessionState::Tool(name.clone())
     } else {
         match msg.stop_reason.as_deref() {
-            Some("end_turn") | Some("stop_sequence") | Some("max_tokens") | Some("refusal") => {
-                SessionState::Idle
-            }
+            Some("end_turn") | Some("stop_sequence") | Some("max_tokens") | Some("refusal") => SessionState::Idle,
             _ => SessionState::Thinking,
         }
     };
@@ -383,9 +372,8 @@ fn user_events(line: &Line<'_>, ts: DateTime<Utc>, session_id: Option<String>, o
         Some(Content::Blocks(b)) => Some(b),
         _ => None,
     };
-    let tool_results: Vec<&Block<'_>> = blocks
-        .map(|b| b.iter().filter(|b| b.kind.as_deref() == Some("tool_result")).collect())
-        .unwrap_or_default();
+    let tool_results: Vec<&Block<'_>> =
+        blocks.map(|b| b.iter().filter(|b| b.kind.as_deref() == Some("tool_result")).collect()).unwrap_or_default();
 
     if line.tool_use_result.is_some() || !tool_results.is_empty() {
         // A tool finished; the model is now working on the result.
@@ -532,9 +520,7 @@ impl ScanAcc {
         let mut out: Vec<AppEvent> = self.requests.into_values().map(|r| AppEvent::Request(Box::new(r))).collect();
         out.extend(self.activity.into_values().map(AppEvent::Activity));
         if !self.tools.is_empty() {
-            out.push(AppEvent::ToolTotals(
-                self.tools.into_iter().map(|(n, (c, f, l))| (n, c, f, l)).collect(),
-            ));
+            out.push(AppEvent::ToolTotals(self.tools.into_iter().map(|(n, (c, f, l))| (n, c, f, l)).collect()));
         }
         out.extend(self.other);
         out
@@ -551,21 +537,14 @@ pub fn session_for_path(path: &Path) -> Option<String> {
     let stem = path.file_stem()?.to_str()?;
     if stem.starts_with("agent-") {
         // <slug>/<session>/subagents/agent-x.jsonl
-        return path
-            .parent()?
-            .parent()?
-            .file_name()?
-            .to_str()
-            .map(str::to_string);
+        return path.parent()?.parent()?.file_name()?.to_str().map(str::to_string);
     }
     Some(stem.to_string())
 }
 
 /// All transcripts modified within `max_age`.
 pub fn discover(projects: &Path, max_age: Duration) -> Vec<PathBuf> {
-    let cutoff = SystemTime::now()
-        .checked_sub(max_age)
-        .unwrap_or(SystemTime::UNIX_EPOCH);
+    let cutoff = SystemTime::now().checked_sub(max_age).unwrap_or(SystemTime::UNIX_EPOCH);
     let mut out = Vec::new();
     let mut stack = vec![projects.to_path_buf()];
     while let Some(dir) = stack.pop() {
@@ -576,10 +555,7 @@ pub fn discover(projects: &Path, max_age: Duration) -> Vec<PathBuf> {
             if ft.is_dir() {
                 stack.push(path);
             } else if path.extension().is_some_and(|e| e == "jsonl") {
-                let recent = entry
-                    .metadata()
-                    .and_then(|m| m.modified())
-                    .is_ok_and(|t| t >= cutoff);
+                let recent = entry.metadata().and_then(|m| m.modified()).is_ok_and(|t| t >= cutoff);
                 if recent {
                     out.push(path);
                 }
@@ -643,12 +619,7 @@ pub struct Tailer {
 
 impl Tailer {
     pub fn new(projects: PathBuf, history_days: u32, pricing: Arc<Pricing>, tx: UnboundedSender<AppEvent>) -> Self {
-        Tailer {
-            projects,
-            max_age: Duration::from_secs(u64::from(history_days.max(1)) * 86_400),
-            pricing,
-            tx,
-        }
+        Tailer { projects, max_age: Duration::from_secs(u64::from(history_days.max(1)) * 86_400), pricing, tx }
     }
 
     /// Blocking: run on a dedicated thread.
@@ -661,16 +632,9 @@ impl Tailer {
         let cursors = self.initial_scan(&files);
         let lines: u64 = cursors.values().map(|c| c.1).sum();
         crate::mem::release();
-        let mut cursors: HashMap<PathBuf, FileCursor> =
-            cursors.into_iter().map(|(p, (c, _))| (p, c)).collect();
-        let _ = self.tx.send(AppEvent::ScanDone {
-            files: total,
-            lines,
-            millis: started.elapsed().as_millis() as u64,
-        });
-        let _ = self
-            .tx
-            .send(AppEvent::Collector(Collector::Jsonl, CollectorHealth::Ok));
+        let mut cursors: HashMap<PathBuf, FileCursor> = cursors.into_iter().map(|(p, (c, _))| (p, c)).collect();
+        let _ = self.tx.send(AppEvent::ScanDone { files: total, lines, millis: started.elapsed().as_millis() as u64 });
+        let _ = self.tx.send(AppEvent::Collector(Collector::Jsonl, CollectorHealth::Ok));
 
         self.tail(&mut cursors);
     }
@@ -690,10 +654,8 @@ impl Tailer {
 
     fn initial_scan(&self, files: &[PathBuf]) -> HashMap<PathBuf, (FileCursor, u64)> {
         // Largest first so the slowest files start early.
-        let mut files: Vec<(PathBuf, u64)> = files
-            .iter()
-            .map(|p| (p.clone(), std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)))
-            .collect();
+        let mut files: Vec<(PathBuf, u64)> =
+            files.iter().map(|p| (p.clone(), std::fs::metadata(p).map(|m| m.len()).unwrap_or(0))).collect();
         files.sort_by_key(|f| std::cmp::Reverse(f.1));
         let queue = Arc::new(parking_lot::Mutex::new(files));
         let done = Arc::new(AtomicUsize::new(0));
@@ -867,7 +829,9 @@ mod tests {
     #[test]
     fn tool_result_marks_thinking_and_failure() {
         let ev = parse_line(TOOL_RESULT, None, &p());
-        assert!(ev.iter().any(|e| matches!(e, AppEvent::Activity(a) if a.state == SessionState::Thinking && a.turns == 0)));
+        assert!(
+            ev.iter().any(|e| matches!(e, AppEvent::Activity(a) if a.state == SessionState::Thinking && a.turns == 0))
+        );
         assert!(ev.iter().any(|e| matches!(e, AppEvent::Tool(t) if t.success == Some(false))));
     }
 
@@ -900,7 +864,9 @@ mod tests {
     #[test]
     fn garbage_and_uninteresting_lines_are_ignored() {
         assert!(parse_line("not json", None, &p()).is_empty());
-        assert!(parse_line(r#"{"type":"file-history-snapshot","timestamp":"2026-10-21T00:00:00Z"}"#, None, &p()).is_empty());
+        assert!(
+            parse_line(r#"{"type":"file-history-snapshot","timestamp":"2026-10-21T00:00:00Z"}"#, None, &p()).is_empty()
+        );
     }
 
     #[test]
@@ -916,11 +882,23 @@ mod tests {
         let out = acc.finish();
         let reqs = out.iter().filter(|e| matches!(e, AppEvent::Request(_))).count();
         assert_eq!(reqs, 1);
-        let acts: Vec<_> = out.iter().filter_map(|e| match e { AppEvent::Activity(a) => Some(a), _ => None }).collect();
+        let acts: Vec<_> = out
+            .iter()
+            .filter_map(|e| match e {
+                AppEvent::Activity(a) => Some(a),
+                _ => None,
+            })
+            .collect();
         assert_eq!(acts.len(), 1);
         assert_eq!(acts[0].turns, 1);
         assert_eq!(acts[0].state, SessionState::Thinking, "latest line is the tool result");
-        let tools = out.iter().find_map(|e| match e { AppEvent::ToolTotals(t) => Some(t), _ => None }).unwrap();
+        let tools = out
+            .iter()
+            .find_map(|e| match e {
+                AppEvent::ToolTotals(t) => Some(t),
+                _ => None,
+            })
+            .unwrap();
         let bash = tools.iter().find(|t| t.0 == "Bash").unwrap();
         assert_eq!((bash.1, bash.2), (1, 1), "one call despite the repeated line, and one failure");
     }

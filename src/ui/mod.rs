@@ -206,16 +206,34 @@ impl App {
             KeyCode::Char('f') => self.fx.enabled = !self.fx.enabled,
             KeyCode::Char('+') | KeyCode::Char('=') => {
                 if self.view == View::Limits {
-                    self.limit_span_hours = match self.limit_span_hours { 6 => 24, 24 => 168, _ => 168 };
+                    self.limit_span_hours = match self.limit_span_hours {
+                        6 => 24,
+                        24 => 168,
+                        _ => 168,
+                    };
                 } else {
-                    self.bucket_secs = match self.bucket_secs { 10 => 30, 30 => 60, 60 => 300, _ => 900 };
+                    self.bucket_secs = match self.bucket_secs {
+                        10 => 30,
+                        30 => 60,
+                        60 => 300,
+                        _ => 900,
+                    };
                 }
             }
             KeyCode::Char('-') | KeyCode::Char('_') => {
                 if self.view == View::Limits {
-                    self.limit_span_hours = match self.limit_span_hours { 168 => 24, 24 => 6, _ => 6 };
+                    self.limit_span_hours = match self.limit_span_hours {
+                        168 => 24,
+                        24 => 6,
+                        _ => 6,
+                    };
                 } else {
-                    self.bucket_secs = match self.bucket_secs { 900 => 300, 300 => 60, 60 => 30, _ => 10 };
+                    self.bucket_secs = match self.bucket_secs {
+                        900 => 300,
+                        300 => 60,
+                        60 => 30,
+                        _ => 10,
+                    };
                 }
             }
             KeyCode::Char('/') if self.view == View::Requests => self.filter_edit = true,
@@ -274,7 +292,13 @@ impl App {
 }
 
 /// Run the UI until the user quits.
-pub async fn run(mut app: App, mut st: State, mut rx: UnboundedReceiver<AppEvent>, store: Option<Store>, idle_fps: u32) -> Result<()> {
+pub async fn run(
+    mut app: App,
+    mut st: State,
+    mut rx: UnboundedReceiver<AppEvent>,
+    store: Option<Store>,
+    idle_fps: u32,
+) -> Result<()> {
     let mut terminal = ratatui::init();
     let res = event_loop(&mut terminal, &mut app, &mut st, &mut rx, store.as_ref(), idle_fps).await;
     ratatui::restore();
@@ -470,7 +494,8 @@ fn render_header_tall(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     let mut timeline = st.since(now - chrono::Duration::minutes(60));
     timeline.retain(|r| r.ts <= now);
     let burn = crate::windows::burn(timeline.iter().copied(), now, 60);
-    let tag = |s: &str| Span::styled(format!(" {s} "), Style::new().fg(t.bg).bg(t.primary).add_modifier(Modifier::BOLD));
+    let tag =
+        |s: &str| Span::styled(format!(" {s} "), Style::new().fg(t.bg).bg(t.primary).add_modifier(Modifier::BOLD));
     let sep = || Span::styled(" ▸ ", Style::new().fg(t.dim));
     let val = |s: String| Span::styled(s, Style::new().fg(t.bright));
     let mut plan = st.plan.clone().unwrap_or_else(|| "local".into()).to_uppercase();
@@ -478,7 +503,13 @@ fn render_header_tall(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     if let Some(tier) = st.tier.as_deref().map(|t| t.replace("default_claude_", "")).filter(|t| t != "ai") {
         plan = format!("{plan} · {}", tier.replace('_', " "));
     }
-    let l1 = Line::from(vec![tag("PLAN"), Span::raw(" "), val(plan), sep(), Span::styled(format!("theme {}", t.name), Style::new().fg(t.muted))]);
+    let l1 = Line::from(vec![
+        tag("PLAN"),
+        Span::raw(" "),
+        val(plan),
+        sep(),
+        Span::styled(format!("theme {}", t.name), Style::new().fg(t.muted)),
+    ]);
     let l2 = Line::from(vec![
         tag("LIVE"),
         Span::raw(" "),
@@ -505,10 +536,14 @@ fn render_header_tall(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         v.extend(collector_dots(app, st));
         Line::from(v)
     } else {
-        let pct = if st.scan.files_total > 0 { st.scan.files_done as f64 / st.scan.files_total as f64 * 100.0 } else { 0.0 };
+        let pct =
+            if st.scan.files_total > 0 { st.scan.files_done as f64 / st.scan.files_total as f64 * 100.0 } else { 0.0 };
         let mut v = vec![tag("SCAN"), Span::raw(" ")];
         v.extend(widgets::mini_bar(pct, 16, &t));
-        v.push(Span::styled(format!(" {}/{} transcripts", st.scan.files_done, st.scan.files_total), Style::new().fg(t.muted)));
+        v.push(Span::styled(
+            format!(" {}/{} transcripts", st.scan.files_done, st.scan.files_total),
+            Style::new().fg(t.muted),
+        ));
         Line::from(v)
     };
     for (i, l) in [l1, l2, l3, l4].iter().enumerate() {
@@ -527,12 +562,18 @@ fn render_header_compact(buf: &mut Buffer, area: Rect, app: &mut App, st: &State
     let live = st.sessions.values().filter(|s| s.alive()).count();
     let mut spans = vec![
         Span::styled("◢ CLANKMON ◣", Style::new().fg(t.primary).add_modifier(Modifier::BOLD)),
-        Span::styled(format!(" {} ", st.plan.clone().unwrap_or_else(|| "local".into()).to_uppercase()), Style::new().fg(t.bg).bg(t.secondary)),
-        Span::styled(format!(" {live} live ", ), Style::new().fg(t.text)),
+        Span::styled(
+            format!(" {} ", st.plan.clone().unwrap_or_else(|| "local".into()).to_uppercase()),
+            Style::new().fg(t.bg).bg(t.secondary),
+        ),
+        Span::styled(format!(" {live} live ",), Style::new().fg(t.text)),
         Span::styled(format!("{} today ", fmt::money(today.cost)), Style::new().fg(t.tertiary)),
     ];
     if !st.scan.finished {
-        spans.push(Span::styled(format!("scan {}/{} ", st.scan.files_done, st.scan.files_total), Style::new().fg(t.muted)));
+        spans.push(Span::styled(
+            format!("scan {}/{} ", st.scan.files_done, st.scan.files_total),
+            Style::new().fg(t.muted),
+        ));
     } else {
         spans.extend(collector_dots(app, st));
     }
@@ -552,18 +593,17 @@ fn render_footer(buf: &mut Buffer, area: Rect, app: &App) {
     for (i, v) in View::ALL.iter().enumerate() {
         let active = *v == app.view;
         spans.push(key(&format!("{}", i + 1)));
-        let style = if active {
-            Style::new().fg(t.primary).add_modifier(Modifier::BOLD)
-        } else {
-            Style::new().fg(t.muted)
-        };
+        let style =
+            if active { Style::new().fg(t.primary).add_modifier(Modifier::BOLD) } else { Style::new().fg(t.muted) };
         let label = v.label();
         let shown = if full || active { label.to_string() } else { label[..3].to_string() };
         spans.push(Span::styled(format!("{shown} "), style));
     }
     spans.push(Span::raw(" "));
     let mut width: usize = spans.iter().map(|s| s.width()).sum();
-    for (k, l) in [("?", "Help"), ("q", "Quit"), ("s", "Sort"), ("t", "Theme"), ("p", "Pause"), ("+-", "Zoom"), ("g", "Log")] {
+    for (k, l) in
+        [("?", "Help"), ("q", "Quit"), ("s", "Sort"), ("t", "Theme"), ("p", "Pause"), ("+-", "Zoom"), ("g", "Log")]
+    {
         let w = k.len() + l.len() + 1;
         if width + w + 16 > area.width as usize {
             break;

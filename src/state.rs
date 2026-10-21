@@ -116,11 +116,8 @@ impl Session {
         if self.context_tokens == 0 {
             return None;
         }
-        let window = self
-            .status
-            .as_ref()
-            .and_then(|s| s.context_window_size)
-            .unwrap_or_else(|| pricing.context_window(model));
+        let window =
+            self.status.as_ref().and_then(|s| s.context_window_size).unwrap_or_else(|| pricing.context_window(model));
         Some(self.context_tokens as f64 / window.max(1) as f64 * 100.0)
     }
 
@@ -393,10 +390,7 @@ impl State {
         m.1 += r.cost_usd;
 
         if let Some(sid) = &r.session_id {
-            let s = self
-                .sessions
-                .entry(sid.clone())
-                .or_insert_with(|| Session::new(sid, r.ts));
+            let s = self.sessions.entry(sid.clone()).or_insert_with(|| Session::new(sid, r.ts));
             s.usage.add(&r.usage);
             s.cost += r.cost_usd;
             s.requests += 1;
@@ -494,9 +488,7 @@ impl State {
     // -- sessions ----------------------------------------------------------
 
     fn session_mut(&mut self, id: &str, ts: DateTime<Utc>) -> &mut Session {
-        self.sessions
-            .entry(id.to_string())
-            .or_insert_with(|| Session::new(id, ts))
+        self.sessions.entry(id.to_string()).or_insert_with(|| Session::new(id, ts))
     }
 
     fn on_activity(&mut self, a: Activity) {
@@ -914,7 +906,14 @@ mod tests {
     #[test]
     fn tools_correlate_by_id() {
         let mut s = state();
-        let use_ = ToolCall { session_id: None, ts: ts(1), name: "Bash".into(), success: None, duration_ms: None, tool_use_id: Some("t1".into()) };
+        let use_ = ToolCall {
+            session_id: None,
+            ts: ts(1),
+            name: "Bash".into(),
+            success: None,
+            duration_ms: None,
+            tool_use_id: Some("t1".into()),
+        };
         let result = ToolCall { name: String::new(), success: Some(false), ..use_.clone() };
         let hook = ToolCall { name: "Bash".into(), success: Some(false), ..use_.clone() };
         s.apply(AppEvent::Tool(use_));

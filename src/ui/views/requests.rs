@@ -4,7 +4,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Row, StatefulWidget, Table, TableState, Widget, Wrap};
+use ratatui::widgets::{
+    Block, BorderType, Borders, Clear, Paragraph, Row, StatefulWidget, Table, TableState, Widget, Wrap,
+};
 
 use super::overview::{Cols, request_header, request_row, request_widths};
 use crate::model::Request;
@@ -19,12 +21,8 @@ fn matches(r: &Request, st: &State, f: &str) -> bool {
         return true;
     }
     let f = f.to_lowercase();
-    let session = r
-        .session_id
-        .as_ref()
-        .and_then(|id| st.sessions.get(id))
-        .map(|s| s.display_name())
-        .unwrap_or_default();
+    let session =
+        r.session_id.as_ref().and_then(|id| st.sessions.get(id)).map(|s| s.display_name()).unwrap_or_default();
     [
         session.as_str(),
         r.model.as_str(),
@@ -95,17 +93,43 @@ pub fn render_detail(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
         kv("time", r.ts.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M:%S%.3f").to_string()),
         kv("session", format!("{} {}", session.unwrap_or_default(), r.session_id.clone().unwrap_or_default())),
         kv("model", format!("{} ({})", st.pricing.label(&r.model), r.model)),
-        kv("effort / tier", format!("{} · {} · {}", r.effort.clone().unwrap_or_else(|| "—".into()), r.service_tier.clone().unwrap_or_else(|| "—".into()), r.speed.clone().unwrap_or_else(|| "normal".into()))),
+        kv(
+            "effort / tier",
+            format!(
+                "{} · {} · {}",
+                r.effort.clone().unwrap_or_else(|| "—".into()),
+                r.service_tier.clone().unwrap_or_else(|| "—".into()),
+                r.speed.clone().unwrap_or_else(|| "normal".into())
+            ),
+        ),
         kv("subagent", if r.sidechain { "yes".into() } else { "no".into() }),
         kv("stop", r.stop_reason.clone().unwrap_or_else(|| "—".into())),
         kv("tools called", if r.tools.is_empty() { "—".into() } else { r.tools.join(", ") }),
         Line::raw(""),
         kv("input", fmt::si(r.usage.input)),
         kv("cache read", fmt::si(r.usage.cache_read)),
-        kv("cache write", format!("{} (5m {} · 1h {})", fmt::si(r.usage.cache_write()), fmt::si(r.usage.cache_write_5m), fmt::si(r.usage.cache_write_1h))),
+        kv(
+            "cache write",
+            format!(
+                "{} (5m {} · 1h {})",
+                fmt::si(r.usage.cache_write()),
+                fmt::si(r.usage.cache_write_5m),
+                fmt::si(r.usage.cache_write_1h)
+            ),
+        ),
         kv("output", format!("{} (thinking {})", fmt::si(r.usage.output), fmt::si(r.usage.thinking))),
-        kv("cost", format!("{}{}", fmt::money(r.cost_usd), if r.cost_estimated { " (estimated: unknown model)" } else { "" })),
-        kv("latency", format!("ttft {} · total {}", r.ttft_ms.map_or("—".into(), fmt::ms), r.duration_ms.map_or("—".into(), fmt::ms))),
+        kv(
+            "cost",
+            format!("{}{}", fmt::money(r.cost_usd), if r.cost_estimated { " (estimated: unknown model)" } else { "" }),
+        ),
+        kv(
+            "latency",
+            format!(
+                "ttft {} · total {}",
+                r.ttft_ms.map_or("—".into(), fmt::ms),
+                r.duration_ms.map_or("—".into(), fmt::ms)
+            ),
+        ),
         kv("http", r.http_status.map_or("—".into(), |s| s.to_string())),
         kv("sources", r.sources.tag()),
     ];
@@ -117,13 +141,28 @@ pub fn render_detail(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
     }
     if let Some(s) = &r.shape {
         lines.push(Line::raw(""));
-        lines.push(Line::from(Span::styled("REQUEST SHAPE (proxy)", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))));
-        lines.push(kv("body", format!("{} · {} messages · {} tools · system {}", fmt::si(s.body_bytes as u64), s.message_count, s.tool_count, fmt::si(s.system_bytes as u64))));
+        lines.push(Line::from(Span::styled(
+            "REQUEST SHAPE (proxy)",
+            Style::new().fg(t.secondary).add_modifier(Modifier::BOLD),
+        )));
+        lines.push(kv(
+            "body",
+            format!(
+                "{} · {} messages · {} tools · system {}",
+                fmt::si(s.body_bytes as u64),
+                s.message_count,
+                s.tool_count,
+                fmt::si(s.system_bytes as u64)
+            ),
+        ));
         lines.push(kv("max_tokens", s.max_tokens.map_or("—".into(), |m| m.to_string())));
         lines.push(kv("thinking", s.thinking.clone().unwrap_or_else(|| "—".into())));
         lines.push(kv("betas", if s.betas.is_empty() { "—".into() } else { s.betas.join(", ") }));
         if !s.limit_headers.is_empty() {
-            lines.push(Line::from(Span::styled("RESPONSE HEADERS", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(Span::styled(
+                "RESPONSE HEADERS",
+                Style::new().fg(t.secondary).add_modifier(Modifier::BOLD),
+            )));
             for (k, v) in &s.limit_headers {
                 lines.push(Line::from(vec![
                     Span::styled(format!("{k}: "), Style::new().fg(t.dim)),
@@ -142,7 +181,10 @@ pub fn render_detail(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Double)
                 .border_style(Style::new().fg(t.primary))
-                .title(Line::from(Span::styled(" ◢ REQUEST ◣ ", Style::new().fg(t.bright).add_modifier(Modifier::BOLD))))
+                .title(Line::from(Span::styled(
+                    " ◢ REQUEST ◣ ",
+                    Style::new().fg(t.bright).add_modifier(Modifier::BOLD),
+                )))
                 .title_bottom(Line::from(Span::styled(" esc close ", Style::new().fg(t.dim))).right_aligned())
                 .style(Style::new().bg(t.panel)),
         )

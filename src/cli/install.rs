@@ -72,11 +72,8 @@ pub fn apply_install(doc: &mut Value, o: &Options) -> Vec<String> {
 
     if o.statusline {
         let ours = format!("{} statusline", shell_quote(&bin));
-        let existing = root
-            .get("statusLine")
-            .and_then(|s| s.get("command"))
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        let existing =
+            root.get("statusLine").and_then(|s| s.get("command")).and_then(Value::as_str).map(str::to_string);
         match existing {
             Some(cmd) if is_ours(&cmd) => changes.push("statusLine already points at clankmon".into()),
             Some(cmd) => {
@@ -110,9 +107,9 @@ pub fn apply_install(doc: &mut Value, o: &Options) -> Vec<String> {
             }
             let groups = groups.as_array_mut().expect("array");
             let present = groups.iter().any(|g| {
-                g.get("hooks").and_then(Value::as_array).is_some_and(|hs| {
-                    hs.iter().any(|h| h.get("command").and_then(Value::as_str).is_some_and(is_ours))
-                })
+                g.get("hooks")
+                    .and_then(Value::as_array)
+                    .is_some_and(|hs| hs.iter().any(|h| h.get("command").and_then(Value::as_str).is_some_and(is_ours)))
             });
             if present {
                 continue;

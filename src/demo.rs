@@ -59,7 +59,8 @@ pub fn sessions() -> Vec<DemoSession> {
     ]
 }
 
-const TOOLS: [&str; 8] = ["Bash", "Read", "Edit", "Grep", "Write", "Glob", "WebFetch", "mcp__github__create_pull_request"];
+const TOOLS: [&str; 8] =
+    ["Bash", "Read", "Edit", "Grep", "Write", "Glob", "WebFetch", "mcp__github__create_pull_request"];
 
 pub fn request(rng: &mut Rng, s: &DemoSession, ts: DateTime<Utc>, n: u64) -> Request {
     let fresh = rng.range(2, 900);

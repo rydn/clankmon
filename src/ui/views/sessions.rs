@@ -41,9 +41,13 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         .map(|s| {
             let style = if s.alive() { Style::new().fg(t.bright) } else { Style::new().fg(t.text) };
             Row::new(vec![
-                Cell::from(Span::styled(if s.alive() { "●" } else { "○" }, Style::new().fg(if s.alive() { t.ok } else { t.dim }))),
+                Cell::from(Span::styled(
+                    if s.alive() { "●" } else { "○" },
+                    Style::new().fg(if s.alive() { t.ok } else { t.dim }),
+                )),
                 Cell::from(fmt::fit(&s.display_name(), 20)).style(style),
-                Cell::from(s.model.as_deref().map(|m| st.pricing.label(m)).unwrap_or_default()).style(Style::new().fg(t.primary)),
+                Cell::from(s.model.as_deref().map(|m| st.pricing.label(m)).unwrap_or_default())
+                    .style(Style::new().fg(t.primary)),
                 Cell::from(s.requests.to_string()).style(style),
                 Cell::from(fmt::money(s.cost)).style(Style::new().fg(t.tertiary)),
                 Cell::from(fmt::ago(s.last_ts, now)).style(Style::new().fg(t.muted)),
@@ -107,9 +111,26 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
                 None => "not running".into(),
             },
         ),
-        kv("state", format!("{} {} for {}", s.state.glyph(), s.state.label(), fmt::ago(s.state_ts.max(s.first_ts), now))),
-        kv("active", format!("{} → {} ({})", fmt::hm(s.first_ts), fmt::hm(s.last_ts), fmt::dur_secs((s.last_ts - s.first_ts).num_seconds()))),
-        kv("turns", format!("{} · {} requests · {} subagent · {} errors · {} compactions", s.turns, s.requests, s.subagent_requests, s.errors, s.compactions)),
+        kv(
+            "state",
+            format!("{} {} for {}", s.state.glyph(), s.state.label(), fmt::ago(s.state_ts.max(s.first_ts), now)),
+        ),
+        kv(
+            "active",
+            format!(
+                "{} → {} ({})",
+                fmt::hm(s.first_ts),
+                fmt::hm(s.last_ts),
+                fmt::dur_secs((s.last_ts - s.first_ts).num_seconds())
+            ),
+        ),
+        kv(
+            "turns",
+            format!(
+                "{} · {} requests · {} subagent · {} errors · {} compactions",
+                s.turns, s.requests, s.subagent_requests, s.errors, s.compactions
+            ),
+        ),
         kv(
             "tokens",
             format!(
@@ -135,7 +156,10 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     match s.context_pct(&st.pricing, now) {
         Some(p) => {
             ctx.extend(mini_bar(p, 20, &t));
-            ctx.push(Span::styled(format!(" {} ({} tok)", fmt::pct(p), fmt::si(s.context_tokens)), Style::new().fg(t.level(p))));
+            ctx.push(Span::styled(
+                format!(" {} ({} tok)", fmt::pct(p), fmt::si(s.context_tokens)),
+                Style::new().fg(t.level(p)),
+            ));
         }
         None => ctx.push(Span::styled("—", Style::new().fg(t.dim))),
     }
@@ -183,7 +207,12 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     if y < inner.height {
         let mut tools: Vec<_> = s.tools.iter().collect();
         tools.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
-        line(buf, inner, y, &Line::from(Span::styled("TOOLS", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))));
+        line(
+            buf,
+            inner,
+            y,
+            &Line::from(Span::styled("TOOLS", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))),
+        );
         y += 1;
         let max = tools.first().map_or(0, |x| *x.1) as f64;
         let bar_w = inner.width.saturating_sub(16 + 7) as usize;
@@ -193,7 +222,10 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
                 inner,
                 y,
                 &Line::from(vec![
-                    Span::styled(format!("{:<16}", fmt::fit(&crate::model::short_tool(name), 16)), Style::new().fg(t.text)),
+                    Span::styled(
+                        format!("{:<16}", fmt::fit(&crate::model::short_tool(name), 16)),
+                        Style::new().fg(t.text),
+                    ),
                     hbar(*n as f64, max, bar_w, t.tertiary),
                     Span::styled(format!(" {n:>5}"), Style::new().fg(t.muted)),
                 ]),

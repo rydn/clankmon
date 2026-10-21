@@ -17,12 +17,8 @@ use crate::ui::widgets::{hbar, line, panel, stacked_bars};
 
 pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     let t = app.theme.clone();
-    let [top, mid, bottom] = Layout::vertical([
-        Constraint::Percentage(36),
-        Constraint::Percentage(30),
-        Constraint::Min(10),
-    ])
-    .areas(area);
+    let [top, mid, bottom] =
+        Layout::vertical([Constraint::Percentage(36), Constraint::Percentage(30), Constraint::Min(10)]).areas(area);
     let today = st.now().with_timezone(&Local).date_naive();
     // Show back to the first day with data, at least a week, at most what fits.
     let first = st
@@ -61,7 +57,12 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
             let v = if total == 0.0 && fallback > 0.0 {
                 vec![fallback, 0.0, 0.0, 0.0]
             } else {
-                vec![a.usage.cache_read as f64, a.usage.cache_write() as f64, a.usage.input as f64, a.usage.output as f64]
+                vec![
+                    a.usage.cache_read as f64,
+                    a.usage.cache_write() as f64,
+                    a.usage.input as f64,
+                    a.usage.output as f64,
+                ]
             };
             // Each day is three columns wide: two bar columns and a gap.
             cols.push(v.clone());
@@ -70,13 +71,25 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         }
         let max = cols.iter().map(|c| c.iter().sum::<f64>()).fold(0.0, f64::max);
         let graph = Rect::new(inner.x, inner.y, inner.width, inner.height - 1);
-        stacked_bars(buf, graph, &cols, &[t.l_cache_read, t.l_cache_write, t.l_input, t.l_output], max, app.log_scale, &t);
+        stacked_bars(
+            buf,
+            graph,
+            &cols,
+            &[t.l_cache_read, t.l_cache_write, t.l_input, t.l_output],
+            max,
+            app.log_scale,
+            &t,
+        );
         line(
             buf,
             inner,
             inner.height - 1,
             &Line::from(Span::styled(
-                format!("{} · peak {} tokens/day", if app.log_scale { "log scale" } else { "linear (g: log)" }, fmt::si_f(max)),
+                format!(
+                    "{} · peak {} tokens/day",
+                    if app.log_scale { "log scale" } else { "linear (g: log)" },
+                    fmt::si_f(max)
+                ),
                 Style::new().fg(t.dim),
             )),
         );
@@ -182,7 +195,15 @@ fn heatmap(buf: &mut Buffer, area: Rect, t: &Theme, st: &State) {
     }
     if inner.height > 9 {
         let total: u64 = grid.iter().flatten().sum();
-        line(buf, inner, 9, &Line::from(Span::styled(format!("{total} requests in the loaded history · sqrt colour scale"), Style::new().fg(t.dim))));
+        line(
+            buf,
+            inner,
+            9,
+            &Line::from(Span::styled(
+                format!("{total} requests in the loaded history · sqrt colour scale"),
+                Style::new().fg(t.dim),
+            )),
+        );
     }
 }
 

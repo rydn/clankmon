@@ -75,10 +75,7 @@ pub fn ps_stats(pids: &[u32]) -> HashMap<u32, (f32, u64)> {
         return HashMap::new();
     }
     let list = pids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
-    let Ok(out) = std::process::Command::new("ps")
-        .args(["-o", "pid=,%cpu=,rss=", "-p", &list])
-        .output()
-    else {
+    let Ok(out) = std::process::Command::new("ps").args(["-o", "pid=,%cpu=,rss=", "-p", &list]).output() else {
         return HashMap::new();
     };
     parse_ps(&String::from_utf8_lossy(&out.stdout))

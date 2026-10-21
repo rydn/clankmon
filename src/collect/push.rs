@@ -7,8 +7,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use crate::model::{
-    Activity, AppEvent, LimitSnapshot, LimitSource, SessionState, StatuslineInfo, ToolCall,
-    WindowReading,
+    Activity, AppEvent, LimitSnapshot, LimitSource, SessionState, StatuslineInfo, ToolCall, WindowReading,
 };
 
 fn s(v: &Value, path: &[&str]) -> Option<String> {
@@ -40,10 +39,7 @@ fn window(v: &Value, key: &str) -> Option<WindowReading> {
     let used = w.get("used_percentage").and_then(Value::as_f64)?;
     Some(WindowReading {
         used_pct: used,
-        resets_at: w
-            .get("resets_at")
-            .and_then(Value::as_i64)
-            .and_then(|t| DateTime::from_timestamp(t, 0)),
+        resets_at: w.get("resets_at").and_then(Value::as_i64).and_then(|t| DateTime::from_timestamp(t, 0)),
         status: None,
     })
 }
@@ -213,9 +209,12 @@ mod tests {
     #[test]
     fn hooks_drive_state() {
         let pre = json!({"session_id": "s", "hook_event_name": "PreToolUse", "tool_name": "Bash"});
-        assert!(matches!(&hook_events(&pre, now())[0], AppEvent::Activity(a) if a.state == SessionState::Tool("Bash".into())));
+        assert!(
+            matches!(&hook_events(&pre, now())[0], AppEvent::Activity(a) if a.state == SessionState::Tool("Bash".into()))
+        );
 
-        let post = json!({"session_id": "s", "hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_use_id": "t1"});
+        let post =
+            json!({"session_id": "s", "hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_use_id": "t1"});
         let ev = hook_events(&post, now());
         assert!(matches!(&ev[1], AppEvent::Tool(t) if t.success == Some(true)));
 

@@ -37,12 +37,20 @@ pub fn run(paths: &Paths, cfg: &Config) -> i32 {
         hint("run Claude Code once, or pass --claude-dir / set CLAUDE_CONFIG_DIR");
     } else {
         let bytes: u64 = files.iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum();
-        row(OK, "transcripts", format!("{} files, {} in the last {} days", files.len(), crate::ui::fmt::si(bytes) + "B", cfg.history_days));
+        row(
+            OK,
+            "transcripts",
+            format!("{} files, {} in the last {} days", files.len(), crate::ui::fmt::si(bytes) + "B", cfg.history_days),
+        );
     }
 
     // Processes.
     let live = procs::read_sessions(&paths.sessions());
-    row(if live.is_empty() { INFO } else { OK }, "processes", format!("{} live Claude Code sessions", live.len()));
+    row(
+        if live.is_empty() { INFO } else { OK },
+        "processes",
+        format!("{} live Claude Code session{}", live.len(), if live.len() == 1 { "" } else { "s" }),
+    );
 
     // Settings: statusline and hooks.
     let settings: Value = std::fs::read_to_string(paths.claude_settings())
@@ -63,7 +71,11 @@ pub fn run(paths: &Paths, cfg: &Config) -> i32 {
                 Some(t) => format!(
                     "installed · last frame {} ago · {}",
                     age(t),
-                    if has_limits { "rate limits present" } else { "no rate_limits (API key or before first response)" }
+                    if has_limits {
+                        "rate limits present"
+                    } else {
+                        "no rate_limits (API key or before first response)"
+                    }
                 ),
                 None => "installed · no frame received yet".into(),
             },
@@ -89,7 +101,9 @@ pub fn run(paths: &Paths, cfg: &Config) -> i32 {
     }
 
     // Proxy.
-    let proxy_up = std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], cfg.proxy.port).into(), Duration::from_millis(200)).is_ok();
+    let proxy_up =
+        std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], cfg.proxy.port).into(), Duration::from_millis(200))
+            .is_ok();
     let base = std::env::var("ANTHROPIC_BASE_URL").unwrap_or_default();
     row(
         if proxy_up { OK } else { INFO },
@@ -110,7 +124,11 @@ pub fn run(paths: &Paths, cfg: &Config) -> i32 {
     row(
         if env_otel.contains("4318") || env_otel.contains(&cfg.otel.port.to_string()) { OK } else { INFO },
         "otel",
-        if env_otel.is_empty() { "Claude Code telemetry export not configured".to_string() } else { format!("exporting to {env_otel}") },
+        if env_otel.is_empty() {
+            "Claude Code telemetry export not configured".to_string()
+        } else {
+            format!("exporting to {env_otel}")
+        },
     );
     if env_otel.is_empty() {
         hint("clankmon install --otel, then run clankmon --otel");

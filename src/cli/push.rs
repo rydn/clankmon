@@ -60,7 +60,17 @@ pub fn render_line(v: &Value) -> String {
     const O: &str = "\x1b[38;2;255;158;44m";
     const B: &str = "\x1b[1m";
     const X: &str = "\x1b[0m";
-    let level = |p: f64| if p >= 90.0 { R } else if p >= 80.0 { O } else if p >= 50.0 { Y } else { C };
+    let level = |p: f64| {
+        if p >= 90.0 {
+            R
+        } else if p >= 80.0 {
+            O
+        } else if p >= 50.0 {
+            Y
+        } else {
+            C
+        }
+    };
     let sep = format!(" {D}▸{X} ");
 
     let model = v.pointer("/model/display_name").and_then(Value::as_str).unwrap_or("Claude");

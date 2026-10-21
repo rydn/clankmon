@@ -106,15 +106,30 @@ impl Proxy {
 fn skip_request_header(name: &HeaderName) -> bool {
     matches!(
         name.as_str(),
-        "host" | "connection" | "keep-alive" | "proxy-connection" | "proxy-authorization" | "te" | "trailer"
-            | "transfer-encoding" | "upgrade" | "content-length" | "accept-encoding"
+        "host"
+            | "connection"
+            | "keep-alive"
+            | "proxy-connection"
+            | "proxy-authorization"
+            | "te"
+            | "trailer"
+            | "transfer-encoding"
+            | "upgrade"
+            | "content-length"
+            | "accept-encoding"
     )
 }
 
 fn skip_response_header(name: &HeaderName) -> bool {
     matches!(
         name.as_str(),
-        "connection" | "keep-alive" | "proxy-connection" | "te" | "trailer" | "transfer-encoding" | "upgrade"
+        "connection"
+            | "keep-alive"
+            | "proxy-connection"
+            | "te"
+            | "trailer"
+            | "transfer-encoding"
+            | "upgrade"
             | "content-length"
     )
 }
@@ -254,15 +269,9 @@ pub async fn handle(req: hyper::Request<Incoming>, px: Arc<Proxy>) -> Result<Res
     let parsed: Option<Value> = if is_messages { serde_json::from_slice(&body).ok() } else { None };
     let shape = parsed.as_ref().map(|v| shape_of(v, &parts.headers, body.len()));
     let session = session_from(&parts.headers, parsed.as_ref());
-    let model = parsed
-        .as_ref()
-        .and_then(|v| v.get("model").and_then(Value::as_str))
-        .unwrap_or("")
-        .to_string();
-    let effort = parsed
-        .as_ref()
-        .and_then(|v| v.pointer("/output_config/effort").and_then(Value::as_str))
-        .map(str::to_string);
+    let model = parsed.as_ref().and_then(|v| v.get("model").and_then(Value::as_str)).unwrap_or("").to_string();
+    let effort =
+        parsed.as_ref().and_then(|v| v.pointer("/output_config/effort").and_then(Value::as_str)).map(str::to_string);
 
     let uri: Uri = match format!("{}{}", px.upstream, path_q).parse() {
         Ok(u) => u,
@@ -297,7 +306,9 @@ pub async fn handle(req: hyper::Request<Incoming>, px: Arc<Proxy>) -> Result<Res
             px.sink.health(CollectorHealth::Error(format!("upstream: {e}")));
             return Ok(json_response(
                 502,
-                &format!(r#"{{"type":"error","error":{{"type":"api_error","message":"clankmon proxy: upstream unreachable: {e}"}}}}"#),
+                &format!(
+                    r#"{{"type":"error","error":{{"type":"api_error","message":"clankmon proxy: upstream unreachable: {e}"}}}}"#
+                ),
             ));
         }
     };
@@ -336,16 +347,8 @@ pub async fn handle(req: hyper::Request<Incoming>, px: Arc<Proxy>) -> Result<Res
     if let Some(s) = shape.as_mut() {
         s.limit_headers = headers::interesting_headers(&rheaders);
     }
-    let pending = Pending {
-        ts,
-        started,
-        model,
-        session,
-        effort,
-        shape,
-        status: status.as_u16(),
-        request_id: request_id.clone(),
-    };
+    let pending =
+        Pending { ts, started, model, session, effort, shape, status: status.as_u16(), request_id: request_id.clone() };
     let cap_name = request_id.clone().unwrap_or_else(|| format!("{}", ts.timestamp_millis()));
     if is_messages {
         capture(px.capture_dir.clone(), format!("{cap_name}.request.json"), body).await;
@@ -500,7 +503,8 @@ mod tests {
     fn session_from_metadata_user_id() {
         let body: Value = serde_json::json!({"metadata": {"user_id": "user_abc_account_123_session_9f1c-77"}});
         assert_eq!(session_from(&HeaderMap::new(), Some(&body)).as_deref(), Some("9f1c-77"));
-        let json_uid: Value = serde_json::json!({"metadata": {"user_id": "{\"device_id\":\"d\",\"session_id\":\"s-42\"}"}});
+        let json_uid: Value =
+            serde_json::json!({"metadata": {"user_id": "{\"device_id\":\"d\",\"session_id\":\"s-42\"}"}});
         assert_eq!(session_from(&HeaderMap::new(), Some(&json_uid)).as_deref(), Some("s-42"));
         let mut h = HeaderMap::new();
         h.insert("x-claude-code-session-id", HeaderValue::from_static("hdr-1"));
@@ -536,7 +540,9 @@ mod tests {
         }));
         assert_eq!(ok.usage.output, 7);
         assert_eq!(ok.tools, vec!["Read"]);
-        let err = summary_from_json(&serde_json::json!({"type": "error", "error": {"type": "rate_limit_error", "message": "slow down"}}));
+        let err = summary_from_json(
+            &serde_json::json!({"type": "error", "error": {"type": "rate_limit_error", "message": "slow down"}}),
+        );
         assert_eq!(err.error.as_deref(), Some("rate_limit_error: slow down"));
     }
 }

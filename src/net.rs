@@ -22,9 +22,7 @@ pub fn https_client() -> HttpsClient {
         .enable_http1()
         .enable_http2()
         .build();
-    Client::builder(TokioExecutor::new())
-        .pool_idle_timeout(std::time::Duration::from_secs(90))
-        .build(https)
+    Client::builder(TokioExecutor::new()).pool_idle_timeout(std::time::Duration::from_secs(90)).build(https)
 }
 
 pub fn full(b: impl Into<Bytes>) -> Body {

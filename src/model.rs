@@ -88,11 +88,7 @@ impl Sources {
 
     pub fn tag(&self) -> String {
         let mut s = String::new();
-        for (bit, c) in [
-            (Self::JSONL, 'J'),
-            (Self::PROXY, 'P'),
-            (Self::OTEL, 'O'),
-        ] {
+        for (bit, c) in [(Self::JSONL, 'J'), (Self::PROXY, 'P'), (Self::OTEL, 'O')] {
             s.push(if self.has(bit) { c } else { '·' });
         }
         s
@@ -244,10 +240,7 @@ impl SessionState {
     }
 
     pub fn is_busy(&self) -> bool {
-        matches!(
-            self,
-            SessionState::Thinking | SessionState::Tool(_) | SessionState::Compacting
-        )
+        matches!(self, SessionState::Thinking | SessionState::Tool(_) | SessionState::Compacting)
     }
 }
 
@@ -476,8 +469,15 @@ pub enum AppEvent {
     StatsCache(StatsCache),
     Oauth(OauthExtra),
     Collector(Collector, CollectorHealth),
-    ScanProgress { files_done: usize, files_total: usize },
-    ScanDone { files: usize, lines: u64, millis: u64 },
+    ScanProgress {
+        files_done: usize,
+        files_total: usize,
+    },
+    ScanDone {
+        files: usize,
+        lines: u64,
+        millis: u64,
+    },
     Batch(Vec<AppEvent>),
 }
 

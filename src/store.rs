@@ -100,10 +100,7 @@ fn write(conn: &Connection, msg: &StoreMsg) -> rusqlite::Result<()> {
         }
         StoreMsg::Incident(i) => {
             let json = serde_json::to_string(i).unwrap_or_default();
-            conn.execute(
-                "INSERT INTO incidents (ts, json) VALUES (?1, ?2)",
-                params![i.ts.timestamp_millis(), json],
-            )?;
+            conn.execute("INSERT INTO incidents (ts, json) VALUES (?1, ?2)", params![i.ts.timestamp_millis(), json])?;
         }
     }
     Ok(())
@@ -154,7 +151,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let conn = open(&dir.path().join("t.db")).unwrap();
         let now = Utc::now();
-        let r = Request { key: "req_1".into(), ts: now, sources: Sources(Sources::PROXY), ttft_ms: Some(700), ..Default::default() };
+        let r = Request {
+            key: "req_1".into(),
+            ts: now,
+            sources: Sources(Sources::PROXY),
+            ttft_ms: Some(700),
+            ..Default::default()
+        };
         write(&conn, &StoreMsg::Request(Box::new(r.clone()))).unwrap();
         // Upsert replaces.
         let r2 = Request { ttft_ms: Some(650), ..r };

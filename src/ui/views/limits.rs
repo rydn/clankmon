@@ -8,8 +8,8 @@ use ratatui::symbols::Marker;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Axis, Cell, Chart, Dataset, GraphType, Row, Table, Widget};
 
-use crate::model::CollectorHealth;
 use crate::model::Collector;
+use crate::model::CollectorHealth;
 use crate::state::State;
 use crate::ui::App;
 use crate::ui::fmt;
@@ -18,26 +18,22 @@ use crate::ui::widgets::{line, mini_bar, panel};
 pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     let t = app.theme.clone();
     let now = st.now();
-    let [chart_area, mid, bottom] = Layout::vertical([
-        Constraint::Percentage(42),
-        Constraint::Length(10),
-        Constraint::Min(5),
-    ])
-    .areas(area);
+    let [chart_area, mid, bottom] =
+        Layout::vertical([Constraint::Percentage(42), Constraint::Length(10), Constraint::Min(5)]).areas(area);
 
     // Utilisation history.
     let span = Duration::hours(app.limit_span_hours);
     let start = now - span;
     let note = Line::from(Span::styled(
-        format!(" last {} · +/- span ", if app.limit_span_hours >= 168 { "7d".into() } else { format!("{}h", app.limit_span_hours) }),
+        format!(
+            " last {} · +/- span ",
+            if app.limit_span_hours >= 168 { "7d".into() } else { format!("{}h", app.limit_span_hours) }
+        ),
         Style::new().fg(t.dim),
     ));
     let inner = panel(buf, chart_area, &t, "UTILISATION", Some(note), false);
     let to_pts = |h: &std::collections::VecDeque<(chrono::DateTime<chrono::Utc>, f64)>| -> Vec<(f64, f64)> {
-        h.iter()
-            .filter(|(ts, _)| *ts >= start)
-            .map(|(ts, p)| ((*ts - start).num_seconds() as f64, *p))
-            .collect()
+        h.iter().filter(|(ts, _)| *ts >= start).map(|(ts, p)| ((*ts - start).num_seconds() as f64, *p)).collect()
     };
     let five = to_pts(&st.limits.five_history);
     let seven = to_pts(&st.limits.seven_history);
@@ -48,10 +44,28 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         line(buf, inner, 0, &Line::from(Span::styled("no limit readings in this span", Style::new().fg(t.muted))));
     } else {
         let ds = vec![
-            Dataset::default().marker(Marker::Braille).graph_type(GraphType::Line).style(Style::new().fg(t.dim)).data(&warn80),
-            Dataset::default().marker(Marker::Braille).graph_type(GraphType::Line).style(Style::new().fg(t.grid)).data(&warn90),
-            Dataset::default().name("7d").marker(Marker::Braille).graph_type(GraphType::Line).style(Style::new().fg(t.primary)).data(&seven),
-            Dataset::default().name("5h").marker(Marker::Braille).graph_type(GraphType::Line).style(Style::new().fg(t.secondary)).data(&five),
+            Dataset::default()
+                .marker(Marker::Braille)
+                .graph_type(GraphType::Line)
+                .style(Style::new().fg(t.dim))
+                .data(&warn80),
+            Dataset::default()
+                .marker(Marker::Braille)
+                .graph_type(GraphType::Line)
+                .style(Style::new().fg(t.grid))
+                .data(&warn90),
+            Dataset::default()
+                .name("7d")
+                .marker(Marker::Braille)
+                .graph_type(GraphType::Line)
+                .style(Style::new().fg(t.primary))
+                .data(&seven),
+            Dataset::default()
+                .name("5h")
+                .marker(Marker::Braille)
+                .graph_type(GraphType::Line)
+                .style(Style::new().fg(t.secondary))
+                .data(&five),
         ];
         let labels_x = vec![
             Span::styled(fmt::hm(start), Style::new().fg(t.dim)),
@@ -71,7 +85,8 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     }
 
     // Sources and extra windows.
-    let [src_area, extra_area] = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(mid);
+    let [src_area, extra_area] =
+        Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).areas(mid);
     let inner = panel(buf, src_area, &t, "SOURCES", None, false);
     let mut rows = Vec::new();
     for (src, snap) in &st.limits.by_source {
@@ -94,12 +109,29 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         }
     }
     if rows.is_empty() {
-        line(buf, inner, 0, &Line::from(Span::styled("no sources reporting; run `clankmon doctor`", Style::new().fg(t.muted))));
+        line(
+            buf,
+            inner,
+            0,
+            &Line::from(Span::styled("no sources reporting; run `clankmon doctor`", Style::new().fg(t.muted))),
+        );
     } else {
-        Table::new(rows, [Constraint::Length(11), Constraint::Length(7), Constraint::Length(7), Constraint::Min(8), Constraint::Length(6)])
-            .header(Row::new(["SOURCE", "5H", "7D", "STATUS", "AGE"].map(Cell::from)).style(Style::new().fg(t.bg).bg(t.secondary).add_modifier(Modifier::BOLD)))
-            .column_spacing(1)
-            .render(inner, buf);
+        Table::new(
+            rows,
+            [
+                Constraint::Length(11),
+                Constraint::Length(7),
+                Constraint::Length(7),
+                Constraint::Min(8),
+                Constraint::Length(6),
+            ],
+        )
+        .header(
+            Row::new(["SOURCE", "5H", "7D", "STATUS", "AGE"].map(Cell::from))
+                .style(Style::new().fg(t.bg).bg(t.secondary).add_modifier(Modifier::BOLD)),
+        )
+        .column_spacing(1)
+        .render(inner, buf);
     }
 
     let inner = panel(buf, extra_area, &t, "WINDOWS", None, false);
@@ -148,13 +180,30 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         y += 1;
     }
     if let Some(e) = &st.oauth.error {
-        line(buf, inner, y.min(inner.height.saturating_sub(1)), &Line::from(Span::styled(format!("oauth: {e}"), Style::new().fg(t.danger))));
+        line(
+            buf,
+            inner,
+            y.min(inner.height.saturating_sub(1)),
+            &Line::from(Span::styled(format!("oauth: {e}"), Style::new().fg(t.danger))),
+        );
     }
 
     // Incidents.
-    let inner = panel(buf, bottom, &t, "INCIDENTS", Some(Line::from(Span::styled(format!(" {} recorded ", st.incidents.len()), Style::new().fg(t.dim)))), false);
+    let inner = panel(
+        buf,
+        bottom,
+        &t,
+        "INCIDENTS",
+        Some(Line::from(Span::styled(format!(" {} recorded ", st.incidents.len()), Style::new().fg(t.dim)))),
+        false,
+    );
     if st.incidents.is_empty() {
-        line(buf, inner, 0, &Line::from(Span::styled("no 429s or API errors in the loaded history", Style::new().fg(t.ok))));
+        line(
+            buf,
+            inner,
+            0,
+            &Line::from(Span::styled("no 429s or API errors in the loaded history", Style::new().fg(t.ok))),
+        );
         return;
     }
     let rows: Vec<Row> = st
@@ -164,15 +213,26 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         .take(inner.height as usize)
         .map(|i| {
             Row::new(vec![
-                Cell::from(i.ts.with_timezone(&chrono::Local).format("%m-%d %H:%M").to_string()).style(Style::new().fg(t.muted)),
+                Cell::from(i.ts.with_timezone(&chrono::Local).format("%m-%d %H:%M").to_string())
+                    .style(Style::new().fg(t.muted)),
                 Cell::from(i.kind.clone()).style(Style::new().fg(t.danger)),
                 Cell::from(i.http_status.map_or("".into(), |s| s.to_string())).style(Style::new().fg(t.warn)),
-                Cell::from(i.resets_at.map_or("".into(), |r| format!("resets {}", fmt::hm(r)))).style(Style::new().fg(t.dim)),
+                Cell::from(i.resets_at.map_or("".into(), |r| format!("resets {}", fmt::hm(r))))
+                    .style(Style::new().fg(t.dim)),
                 Cell::from(i.message.clone()).style(Style::new().fg(t.text)),
             ])
         })
         .collect();
-    Table::new(rows, [Constraint::Length(11), Constraint::Length(14), Constraint::Length(4), Constraint::Length(13), Constraint::Min(10)])
-        .column_spacing(1)
-        .render(inner, buf);
+    Table::new(
+        rows,
+        [
+            Constraint::Length(11),
+            Constraint::Length(14),
+            Constraint::Length(4),
+            Constraint::Length(13),
+            Constraint::Min(10),
+        ],
+    )
+    .column_spacing(1)
+    .render(inner, buf);
 }

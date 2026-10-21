@@ -128,7 +128,10 @@ pub async fn run(cred_file: std::path::PathBuf, interval_secs: u64, tx: Unbounde
         let file = cred_file.clone();
         let creds = tokio::task::spawn_blocking(move || read_credentials(&file)).await.ok().flatten();
         let Some(token) = creds.as_ref().and_then(|c| c.access_token.clone()) else {
-            let _ = tx.send(AppEvent::Collector(Collector::OAuth, CollectorHealth::Error("no Claude Code OAuth token".into())));
+            let _ = tx.send(AppEvent::Collector(
+                Collector::OAuth,
+                CollectorHealth::Error("no Claude Code OAuth token".into()),
+            ));
             wait = base;
             continue;
         };

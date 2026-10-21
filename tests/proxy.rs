@@ -203,7 +203,8 @@ async fn streams_through_unchanged_and_records_everything() {
 async fn rate_limits_become_incidents() {
     let up = upstream(Arc::default()).await;
     let (port, mut rx) = start_proxy(&format!("http://127.0.0.1:{up}")).await;
-    let (status, _, bytes) = post(port, r#"{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"please-429"}]}"#).await;
+    let (status, _, bytes) =
+        post(port, r#"{"model":"claude-haiku-4-5","messages":[{"role":"user","content":"please-429"}]}"#).await;
     assert_eq!(status, 429);
     assert!(String::from_utf8_lossy(&bytes).contains("rate_limit_error"));
     let events = collect(&mut rx, 3).await;

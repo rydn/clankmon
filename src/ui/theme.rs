@@ -215,9 +215,7 @@ pub fn shade(c: Color, f: f64) -> Color {
 
 /// Does the terminal advertise 24-bit colour?
 pub fn truecolor_supported() -> bool {
-    std::env::var("COLORTERM")
-        .map(|v| v.contains("truecolor") || v.contains("24bit"))
-        .unwrap_or(false)
+    std::env::var("COLORTERM").map(|v| v.contains("truecolor") || v.contains("24bit")).unwrap_or(false)
         || std::env::var("TERM_PROGRAM")
             .map(|p| matches!(p.as_str(), "iTerm.app" | "WezTerm" | "ghostty" | "vscode" | "WarpTerminal"))
             .unwrap_or(false)
@@ -239,7 +237,15 @@ pub fn to_ansi256(r: u8, g: u8, b: u8) -> u8 {
         }
         return 232 + ((r as u16 - 8) * 24 / 247) as u8;
     }
-    let q = |x: u8| -> u8 { if x < 48 { 0 } else if x < 115 { 1 } else { ((x as u16 - 35) / 40) as u8 } };
+    let q = |x: u8| -> u8 {
+        if x < 48 {
+            0
+        } else if x < 115 {
+            1
+        } else {
+            ((x as u16 - 35) / 40) as u8
+        }
+    };
     16 + 36 * q(r) + 6 * q(g) + q(b)
 }
 

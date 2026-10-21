@@ -56,7 +56,13 @@ fn csv_field(s: &str) -> String {
     if s.contains([',', '"', '\n']) { format!("\"{}\"", s.replace('"', "\"\"")) } else { s.to_string() }
 }
 
-pub fn run(paths: &Paths, pricing: Arc<Pricing>, format: Format, since: &str, output: Option<&std::path::Path>) -> Result<()> {
+pub fn run(
+    paths: &Paths,
+    pricing: Arc<Pricing>,
+    format: Format,
+    since: &str,
+    output: Option<&std::path::Path>,
+) -> Result<()> {
     let span = parse_since(since)?;
     let days = (span.num_days() + 1).clamp(1, 3650) as u32;
     let st = load(paths, days, pricing);
@@ -72,9 +78,17 @@ pub fn run(paths: &Paths, pricing: Arc<Pricing>, format: Format, since: &str, ou
             }
         }
         Format::Csv => {
-            writeln!(out, "ts,request_id,session_id,project,model,input,cache_read,cache_write_5m,cache_write_1h,output,thinking,cost_usd,stop_reason,subagent,tools")?;
+            writeln!(
+                out,
+                "ts,request_id,session_id,project,model,input,cache_read,cache_write_5m,cache_write_1h,output,thinking,cost_usd,stop_reason,subagent,tools"
+            )?;
             for r in st.timeline().filter(|r| r.ts >= cutoff) {
-                let project = r.session_id.as_ref().and_then(|s| st.sessions.get(s)).and_then(|s| s.cwd.clone()).unwrap_or_default();
+                let project = r
+                    .session_id
+                    .as_ref()
+                    .and_then(|s| st.sessions.get(s))
+                    .and_then(|s| s.cwd.clone())
+                    .unwrap_or_default();
                 writeln!(
                     out,
                     "{},{},{},{},{},{},{},{},{},{},{},{:.6},{},{},{}",
@@ -100,7 +114,8 @@ pub fn run(paths: &Paths, pricing: Arc<Pricing>, format: Format, since: &str, ou
             writeln!(out, "date,requests,errors,input,cache_read,cache_write,output,cost_usd,top_model")?;
             let first = cutoff.with_timezone(&chrono::Local).date_naive();
             for (d, a) in st.days.range(first..) {
-                let top = a.by_model.iter().max_by(|x, y| x.1.1.total_cmp(&y.1.1)).map(|x| x.0.clone()).unwrap_or_default();
+                let top =
+                    a.by_model.iter().max_by(|x, y| x.1.1.total_cmp(&y.1.1)).map(|x| x.0.clone()).unwrap_or_default();
                 writeln!(
                     out,
                     "{d},{},{},{},{},{},{},{:.4},{}",

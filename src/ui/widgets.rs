@@ -153,15 +153,21 @@ fn dot_bit(col: usize, row: usize) -> u32 {
 
 /// bmon-style stacked bar graph: one column per sample, layers bottom-up,
 /// eighth-block resolution on the top cell of each layer stack.
-pub fn stacked_bars(buf: &mut Buffer, area: Rect, columns: &[Vec<f64>], colors: &[Color], max: f64, log: bool, t: &Theme) {
+pub fn stacked_bars(
+    buf: &mut Buffer,
+    area: Rect,
+    columns: &[Vec<f64>],
+    colors: &[Color],
+    max: f64,
+    log: bool,
+    t: &Theme,
+) {
     if area.width == 0 || area.height == 0 {
         return;
     }
     let h = area.height as usize;
     let total_eighths = h * 8;
-    let scale = |v: f64| -> f64 {
-        if log { (v.max(0.0) + 1.0).ln() } else { v.max(0.0) }
-    };
+    let scale = |v: f64| -> f64 { if log { (v.max(0.0) + 1.0).ln() } else { v.max(0.0) } };
     let smax = scale(max).max(1e-9);
     let w = area.width as usize;
     let start = columns.len().saturating_sub(w);

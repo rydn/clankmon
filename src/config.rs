@@ -18,15 +18,12 @@ pub struct Paths {
 
 impl Paths {
     pub fn resolve(claude_dir: Option<PathBuf>) -> Self {
-        let user_home = directories::BaseDirs::new()
-            .map(|b| b.home_dir().to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
+        let user_home =
+            directories::BaseDirs::new().map(|b| b.home_dir().to_path_buf()).unwrap_or_else(|| PathBuf::from("."));
         let claude_dir = claude_dir
             .or_else(|| std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from))
             .unwrap_or_else(|| user_home.join(".claude"));
-        let home = std::env::var_os("CLANKMON_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| user_home.join(".clankmon"));
+        let home = std::env::var_os("CLANKMON_HOME").map(PathBuf::from).unwrap_or_else(|| user_home.join(".clankmon"));
         Paths { claude_dir, home }
     }
 
@@ -66,8 +63,7 @@ impl Paths {
     }
 
     pub fn ensure_home(&self) -> Result<()> {
-        std::fs::create_dir_all(&self.home)
-            .wrap_err_with(|| format!("creating {}", self.home.display()))
+        std::fs::create_dir_all(&self.home).wrap_err_with(|| format!("creating {}", self.home.display()))
     }
 }
 
@@ -119,12 +115,7 @@ pub struct ProxyConfig {
 
 impl Default for ProxyConfig {
     fn default() -> Self {
-        ProxyConfig {
-            enabled: false,
-            port: 8484,
-            upstream: "https://api.anthropic.com".into(),
-            capture_bodies: false,
-        }
+        ProxyConfig { enabled: false, port: 8484, upstream: "https://api.anthropic.com".into(), capture_bodies: false }
     }
 }
 
@@ -198,10 +189,8 @@ mod tests {
 
     #[test]
     fn pricing_override_parses() {
-        let cfg: Config = toml::from_str(
-            "[[pricing]]\nmatch = \"claude-x\"\ninput = 1.0\noutput = 2.0\ncache_read = 0.1\n",
-        )
-        .unwrap();
+        let cfg: Config =
+            toml::from_str("[[pricing]]\nmatch = \"claude-x\"\ninput = 1.0\noutput = 2.0\ncache_read = 0.1\n").unwrap();
         assert_eq!(cfg.pricing_overrides[0].matcher, "claude-x");
     }
 }

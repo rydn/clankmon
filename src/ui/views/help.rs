@@ -45,7 +45,10 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &App) {
         k("otel", "clankmon --otel + OTLP http/json env vars"),
         k("oauth", "clankmon --oauth: /api/oauth/usage, polled slowly"),
         Line::raw(""),
-        Line::from(Span::styled("  costs are list-price equivalents; subscription usage is not billed per token", Style::new().fg(t.dim))),
+        Line::from(Span::styled(
+            "  costs are list-price equivalents; subscription usage is not billed per token",
+            Style::new().fg(t.dim),
+        )),
     ];
     let r = popup(area, 84, lines.len() as u16 + 2);
     Clear.render(r, buf);
@@ -55,7 +58,10 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &App) {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Double)
                 .border_style(Style::new().fg(t.secondary))
-                .title(Line::from(Span::styled(" ◢ CLANKMON HELP ◣ ", Style::new().fg(t.bright).add_modifier(Modifier::BOLD))))
+                .title(Line::from(Span::styled(
+                    " ◢ CLANKMON HELP ◣ ",
+                    Style::new().fg(t.bright).add_modifier(Modifier::BOLD),
+                )))
                 .title_bottom(Line::from(Span::styled(" any key to close ", Style::new().fg(t.dim))).right_aligned())
                 .style(Style::new().bg(t.panel)),
         )

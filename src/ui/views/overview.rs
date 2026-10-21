@@ -65,11 +65,7 @@ pub fn sorted_sessions(st: &State, sort: SortKey) -> Vec<&Session> {
                 SessionState::Ended => 3,
                 _ => 2,
             };
-            b.alive()
-                .cmp(&a.alive())
-                .then(rank(a).cmp(&rank(b)))
-                .then(b.last_ts.cmp(&a.last_ts))
-                .then(a.id.cmp(&b.id))
+            b.alive().cmp(&a.alive()).then(rank(a).cmp(&rank(b))).then(b.last_ts.cmp(&a.last_ts)).then(a.id.cmp(&b.id))
         }),
         SortKey::Cost => v.sort_by(|a, b| b.cost.total_cmp(&a.cost).then(a.id.cmp(&b.id))),
         SortKey::Tokens => v.sort_by(|a, b| b.usage.total().cmp(&a.usage.total()).then(a.id.cmp(&b.id))),
@@ -77,7 +73,9 @@ pub fn sorted_sessions(st: &State, sort: SortKey) -> Vec<&Session> {
             let c = |s: &Session| s.proc.as_ref().and_then(|p| p.cpu_pct).unwrap_or(-1.0);
             c(b).total_cmp(&c(a)).then(a.id.cmp(&b.id))
         }),
-        SortKey::Name => v.sort_by(|a, b| a.display_name().to_lowercase().cmp(&b.display_name().to_lowercase()).then(a.id.cmp(&b.id))),
+        SortKey::Name => v.sort_by(|a, b| {
+            a.display_name().to_lowercase().cmp(&b.display_name().to_lowercase()).then(a.id.cmp(&b.id))
+        }),
     }
     v
 }
@@ -91,11 +89,7 @@ fn quota(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     let now = st.now();
     let five = st.window(true);
     let seven = st.window(false);
-    let newest = [five.as_ref(), seven.as_ref()]
-        .into_iter()
-        .flatten()
-        .max_by_key(|w| w.2)
-        .map(|w| (w.1, w.2));
+    let newest = [five.as_ref(), seven.as_ref()].into_iter().flatten().max_by_key(|w| w.2).map(|w| (w.1, w.2));
     let note = newest.map(|(src, ts)| {
         Line::from(vec![
             Span::styled(format!(" {} ", src.label()), Style::new().fg(t.muted)),
@@ -171,7 +165,10 @@ fn quota(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
             spans.extend(mini_bar(w.used_pct, 12, &t));
             spans.push(Span::styled(format!(" {:>6}", fmt::pct(w.used_pct)), Style::new().fg(t.level(w.used_pct))));
             if let Some(r) = w.resets_at {
-                spans.push(Span::styled(format!(" ⟳{}", fmt::dur_secs((r - now).num_seconds())), Style::new().fg(t.dim)));
+                spans.push(Span::styled(
+                    format!(" ⟳{}", fmt::dur_secs((r - now).num_seconds())),
+                    Style::new().fg(t.dim),
+                ));
             }
             line(buf, inner, y, &Line::from(spans));
             y += 1;
@@ -199,7 +196,10 @@ fn quota(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
                 Span::styled("BURN  ", Style::new().fg(t.primary).add_modifier(Modifier::BOLD)),
                 Span::styled(format!("{}/h", fmt::money(burn.cost_per_hour)), Style::new().fg(t.tertiary)),
                 sep(),
-                Span::styled(format!("{} tok/m", fmt::si_f(burn.prompt_per_min + burn.output_per_min)), Style::new().fg(t.text)),
+                Span::styled(
+                    format!("{} tok/m", fmt::si_f(burn.prompt_per_min + burn.output_per_min)),
+                    Style::new().fg(t.text),
+                ),
                 sep(),
                 Span::styled("block ends near ", Style::new().fg(t.dim)),
                 Span::styled(fmt::money(projected), Style::new().fg(t.tertiary)),
@@ -246,10 +246,8 @@ fn window_rows(
     let readings: Vec<(DateTime<Utc>, f64)> = hist.iter().copied().collect();
     let fit = if window == FIVE_HOURS { 90 } else { 24 * 60 };
     let proj = windows::project(&readings, r.used_pct, r.resets_at, window, now, fit);
-    let reset = r
-        .resets_at
-        .map(|x| format!("⟳{}", fmt::dur_secs((x - now).num_seconds())))
-        .unwrap_or_else(|| "⟳ —".into());
+    let reset =
+        r.resets_at.map(|x| format!("⟳{}", fmt::dur_secs((x - now).num_seconds()))).unwrap_or_else(|| "⟳ —".into());
     let pct_txt = format!("{:>6}", fmt::pct(r.used_pct));
     let right_w = 7 + 1 + reset.chars().count() as u16;
     let gauge_w = inner.width.saturating_sub(4 + right_w + 1);
@@ -335,14 +333,10 @@ fn throughput(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
     // Two graphs need head+graph+head+graph+stats; fall back to one graph when short.
     let two = inner.height >= 5;
     let gh = if two { (inner.height - 3) / 2 } else { inner.height.saturating_sub(2).max(1) };
-    let prompt_cols: Vec<Vec<f64>> = buckets
-        .iter()
-        .map(|b| vec![b.input as f64, b.cache_write as f64, b.cache_read as f64])
-        .collect();
-    let out_cols: Vec<Vec<f64>> = buckets
-        .iter()
-        .map(|b| vec![b.output.saturating_sub(b.thinking) as f64, b.thinking as f64])
-        .collect();
+    let prompt_cols: Vec<Vec<f64>> =
+        buckets.iter().map(|b| vec![b.input as f64, b.cache_write as f64, b.cache_read as f64]).collect();
+    let out_cols: Vec<Vec<f64>> =
+        buckets.iter().map(|b| vec![b.output.saturating_sub(b.thinking) as f64, b.thinking as f64]).collect();
     let pmax = buckets.iter().map(|b| b.prompt()).max().unwrap_or(0) as f64;
     let omax = buckets.iter().map(|b| b.output).max().unwrap_or(0) as f64;
 
@@ -398,10 +392,7 @@ fn throughput(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
         stats.push(Span::styled(fmt::ms(d), Style::new().fg(t.text)));
     }
     stats.push(sep());
-    stats.push(Span::styled(
-        format!("err {errors}"),
-        Style::new().fg(if errors > 0 { t.danger } else { t.dim }),
-    ));
+    stats.push(Span::styled(format!("err {errors}"), Style::new().fg(if errors > 0 { t.danger } else { t.dim })));
     line(buf, inner, inner.height - 1, &Line::from(stats));
 }
 
@@ -464,7 +455,10 @@ fn processes(buf: &mut Buffer, area: Rect, app: &mut App, st: &State, sessions: 
             buf,
             inner,
             0,
-            &Line::from(Span::styled("no Claude Code sessions active in the last 15 minutes", Style::new().fg(t.muted))),
+            &Line::from(Span::styled(
+                "no Claude Code sessions active in the last 15 minutes",
+                Style::new().fg(t.muted),
+            )),
         );
         return;
     }
@@ -474,7 +468,12 @@ fn processes(buf: &mut Buffer, area: Rect, app: &mut App, st: &State, sessions: 
     let wide = inner.width >= 150;
 
     let mut header: Vec<&str> = vec!["", "PID", "SESSION", "MODEL"];
-    let mut widths = vec![Constraint::Length(1), Constraint::Length(6), Constraint::Length(if medium { 18 } else { 14 }), Constraint::Length(10)];
+    let mut widths = vec![
+        Constraint::Length(1),
+        Constraint::Length(6),
+        Constraint::Length(if medium { 18 } else { 14 }),
+        Constraint::Length(10),
+    ];
     if wide {
         header.push("EFF");
         widths.push(Constraint::Length(3));
@@ -563,16 +562,21 @@ fn processes(buf: &mut Buffer, area: Rect, app: &mut App, st: &State, sessions: 
                 cells.push(Cell::from(req_line));
             }
             if wide {
-                cells.push(Cell::from(s.cache_hit().map_or("—".into(), |h| format!("{:.0}%", h * 100.0))).style(Style::new().fg(t.muted)));
+                cells.push(
+                    Cell::from(s.cache_hit().map_or("—".into(), |h| format!("{:.0}%", h * 100.0)))
+                        .style(Style::new().fg(t.muted)),
+                );
             }
             cells.push(Cell::from(fmt::money(s.cost)).style(Style::new().fg(t.tertiary)));
             if wide {
                 let cpu = s.proc.as_ref().and_then(|p| p.cpu_pct);
-                cells.push(Cell::from(cpu.map_or("—".into(), |c| format!("{c:.1}"))).style(Style::new().fg(match cpu {
-                    Some(c) if c > 50.0 => t.warn,
-                    Some(_) => t.text,
-                    None => t.dim,
-                })));
+                cells.push(Cell::from(cpu.map_or("—".into(), |c| format!("{c:.1}"))).style(Style::new().fg(
+                    match cpu {
+                        Some(c) if c > 50.0 => t.warn,
+                        Some(_) => t.text,
+                        None => t.dim,
+                    },
+                )));
                 cells.push(
                     Cell::from(s.proc.as_ref().and_then(|p| p.rss_kb).map_or("—".into(), |k| fmt::si(k * 1024)))
                         .style(Style::new().fg(t.muted)),
@@ -676,7 +680,8 @@ pub fn request_row<'a>(r: &Request, st: &State, t: &Theme, now: DateTime<Utc>, c
             Cell::from(stop).style(base),
             Cell::from(lat).style(Style::new().fg(t.text)),
             Cell::from(r.sources.tag()).style(Style::new().fg(t.dim)),
-            Cell::from(r.tools.iter().map(|x| crate::model::short_tool(x)).collect::<Vec<_>>().join(" ")).style(Style::new().fg(t.tertiary)),
+            Cell::from(r.tools.iter().map(|x| crate::model::short_tool(x)).collect::<Vec<_>>().join(" "))
+                .style(Style::new().fg(t.tertiary)),
         ]);
         if cols == Cols::WithKey {
             cells.push(Cell::from(r.key.clone()).style(Style::new().fg(t.dim)));
@@ -718,8 +723,24 @@ pub fn request_widths(cols: Cols) -> Vec<Constraint> {
 pub fn request_header<'a>(t: &Theme, cols: Cols) -> Row<'a> {
     let h: Vec<&str> = match cols {
         Cols::Narrow => vec!["TIME", "SESSION", "MODEL", "PROMPT", "OUT", "COST", "STOP", "LAT"],
-        Cols::Normal => vec!["TIME", "SESSION", "MODEL", "IN", "C.RD", "C.WR", "OUT", "COST", "STOP", "LAT", "SRC", "TOOLS"],
-        Cols::WithKey => vec!["TIME", "SESSION", "MODEL", "IN", "C.RD", "C.WR", "OUT", "COST", "STOP", "LAT", "SRC", "TOOLS", "REQUEST ID"],
+        Cols::Normal => {
+            vec!["TIME", "SESSION", "MODEL", "IN", "C.RD", "C.WR", "OUT", "COST", "STOP", "LAT", "SRC", "TOOLS"]
+        }
+        Cols::WithKey => vec![
+            "TIME",
+            "SESSION",
+            "MODEL",
+            "IN",
+            "C.RD",
+            "C.WR",
+            "OUT",
+            "COST",
+            "STOP",
+            "LAT",
+            "SRC",
+            "TOOLS",
+            "REQUEST ID",
+        ],
     };
     Row::new(h.into_iter().map(Cell::from)).style(Style::new().fg(t.bg).bg(t.primary).add_modifier(Modifier::BOLD))
 }
@@ -771,7 +792,12 @@ fn models_tools(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
     models.sort_by(|a, b| b.1.1.total_cmp(&a.1.1).then(a.0.cmp(b.0)));
     let maxc = models.first().map_or(0.0, |m| m.1.1);
     let mut y = 0;
-    line(buf, inner, y, &Line::from(Span::styled("TODAY BY MODEL", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))));
+    line(
+        buf,
+        inner,
+        y,
+        &Line::from(Span::styled("TODAY BY MODEL", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))),
+    );
     y += 1;
     if models.is_empty() {
         line(buf, inner, y, &Line::from(Span::styled("no requests today", Style::new().fg(t.dim))));

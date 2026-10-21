@@ -20,8 +20,7 @@ use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::model::{
-    Activity, AppEvent, Collector, CollectorHealth, Incident, Request, SessionState, Sources,
-    ToolCall, Usage,
+    Activity, AppEvent, Collector, CollectorHealth, Incident, Request, SessionState, Sources, ToolCall, Usage,
 };
 use crate::net::{Body, json_response};
 
@@ -190,12 +189,7 @@ async fn handle(req: HttpRequest<Incoming>, tx: UnboundedSender<AppEvent>) -> Re
     if req.method() != Method::POST {
         return Ok(json_response(405, r#"{"error":"POST only"}"#));
     }
-    let ctype = req
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
+    let ctype = req.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
     if ctype.contains("protobuf") {
         let _ = tx.send(AppEvent::Collector(
             Collector::Otel,
@@ -285,12 +279,12 @@ mod tests {
     #[test]
     fn tool_result_event() {
         let body = json!({"resourceLogs": [{"scopeLogs": [{"logRecords": [{
-            "attributes": [
-                {"key": "event.name", "value": {"stringValue": "tool_result"}},
-                {"key": "tool_name", "value": {"stringValue": "Bash"}},
-                {"key": "success", "value": {"stringValue": "false"}},
-                {"key": "tool_use_id", "value": {"stringValue": "t1"}}
-            ]}]}]}]});
+        "attributes": [
+            {"key": "event.name", "value": {"stringValue": "tool_result"}},
+            {"key": "tool_name", "value": {"stringValue": "Bash"}},
+            {"key": "success", "value": {"stringValue": "false"}},
+            {"key": "tool_use_id", "value": {"stringValue": "t1"}}
+        ]}]}]}]});
         let ev = logs_to_events(&body);
         assert!(matches!(&ev[0], AppEvent::Tool(t) if t.name == "Bash" && t.success == Some(false)));
     }
@@ -298,6 +292,9 @@ mod tests {
     #[test]
     fn empty_or_foreign_bodies_are_ignored() {
         assert!(logs_to_events(&json!({})).is_empty());
-        assert!(logs_to_events(&json!({"resourceLogs": [{"scopeLogs": [{"logRecords": [{"attributes": []}]}]}]})).is_empty());
+        assert!(
+            logs_to_events(&json!({"resourceLogs": [{"scopeLogs": [{"logRecords": [{"attributes": []}]}]}]}))
+                .is_empty()
+        );
     }
 }
