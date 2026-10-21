@@ -730,6 +730,7 @@ impl Tailer {
 
         let mut last_rescan = Instant::now();
         let mut sizes: HashMap<PathBuf, u64> = HashMap::new();
+        let mut hot: Vec<PathBuf> = discover(&self.projects, Duration::from_secs(3600));
         loop {
             // Wake on a file event or every second as a safety net (FSEvents coalesces).
             let mut dirty: Vec<PathBuf> = Vec::new();
@@ -751,22 +752,25 @@ impl Tailer {
                 return;
             }
 
-            // Poll known files whose size changed (cheap stat), plus new files every 5 s.
-            for (path, cursor) in cursors.iter() {
+            // Safety net for missed file events: stat only recently active files
+            // each second (old sessions never change), and rediscover every 5 s.
+            if last_rescan.elapsed() > Duration::from_secs(5) {
+                last_rescan = Instant::now();
+                hot = discover(&self.projects, Duration::from_secs(3600));
+                for p in &hot {
+                    if !cursors.contains_key(p) {
+                        dirty.push(p.clone());
+                    }
+                }
+            }
+            for path in &hot {
+                let Some(cursor) = cursors.get(path) else { continue };
                 if let Ok(m) = std::fs::metadata(path) {
                     let len = m.len();
                     if len != cursor.offset && sizes.get(path) != Some(&len) {
                         dirty.push(path.clone());
                     }
                     sizes.insert(path.clone(), len);
-                }
-            }
-            if last_rescan.elapsed() > Duration::from_secs(5) {
-                last_rescan = Instant::now();
-                for p in discover(&self.projects, Duration::from_secs(3600)) {
-                    if !cursors.contains_key(&p) {
-                        dirty.push(p);
-                    }
                 }
             }
 

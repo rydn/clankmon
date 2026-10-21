@@ -93,7 +93,7 @@ fn parse_ps(text: &str) -> HashMap<u32, (f32, u64)> {
         .collect()
 }
 
-/// Poll the registry every second; `ps` every other tick.
+/// Poll the registry every second; `ps` every fifth tick.
 pub async fn run(dir: PathBuf, tx: UnboundedSender<AppEvent>) {
     let mut tick = tokio::time::interval(Duration::from_secs(1));
     let mut n: u64 = 0;
@@ -102,7 +102,7 @@ pub async fn run(dir: PathBuf, tx: UnboundedSender<AppEvent>) {
     loop {
         tick.tick().await;
         let dir2 = dir.clone();
-        let refresh_ps = n.is_multiple_of(2);
+        let refresh_ps = n.is_multiple_of(5);
         let prev = last_stats.clone();
         let res = tokio::task::spawn_blocking(move || {
             let mut procs = read_sessions(&dir2);

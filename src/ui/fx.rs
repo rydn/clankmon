@@ -95,7 +95,7 @@ impl Fx {
         if !self.enabled || Instant::now() < self.next_ambient {
             return;
         }
-        self.next_ambient = Instant::now() + Duration::from_secs(25);
+        self.next_ambient = Instant::now() + Duration::from_secs(45);
         let shimmer = fx::ping_pong(fx::hsl_shift_fg([0.0, 0.0, 35.0], (700, Interpolation::SineInOut)))
             .with_pattern(SweepPattern::left_to_right(12));
         self.add(FxKey::Ambient, shimmer.with_area(area));

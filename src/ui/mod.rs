@@ -324,7 +324,15 @@ async fn event_loop(
     app.fx.startup(Rect::new(0, 0, size.width, size.height));
 
     loop {
-        let frame_every = if app.fx.running() || app.fx.quitting() { anim } else { idle };
+        // 30 fps while animating; the configured rate while a spinner is visible; 1 Hz otherwise.
+        let busy = st.sessions.values().any(|s| s.alive() && s.state.is_busy());
+        let frame_every = if app.fx.running() || app.fx.quitting() {
+            anim
+        } else if busy {
+            idle
+        } else {
+            idle.max(Duration::from_secs(1))
+        };
         let wait = frame_every.saturating_sub(last_draw.elapsed());
         tokio::select! {
             ev = events.next() => {
