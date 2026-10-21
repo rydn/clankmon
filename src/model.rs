@@ -271,9 +271,10 @@ pub struct Activity {
     pub version: Option<String>,
     pub model: Option<String>,
     pub effort: Option<String>,
-    /// True when this activity came from a user prompt (counts a turn).
-    pub user_prompt: bool,
-    pub compaction: bool,
+    /// User prompts this activity represents (0 or 1 live; summed when coalesced).
+    pub turns: u32,
+    /// Compactions this activity represents.
+    pub compactions: u32,
 }
 
 /// One tool call.
@@ -470,6 +471,8 @@ pub enum AppEvent {
     Limits(Box<LimitSnapshot>),
     Statusline(Box<StatuslineInfo>),
     Incident(Incident),
+    /// Aggregated tool counts from the initial scan: (name, calls, failures, last use).
+    ToolTotals(Vec<(String, u64, u64, DateTime<Utc>)>),
     StatsCache(StatsCache),
     Oauth(OauthExtra),
     Collector(Collector, CollectorHealth),

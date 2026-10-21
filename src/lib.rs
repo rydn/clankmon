@@ -5,6 +5,7 @@ pub mod collect;
 pub mod config;
 pub mod demo;
 pub mod ipc;
+pub mod mem;
 pub mod model;
 pub mod net;
 pub mod pricing;

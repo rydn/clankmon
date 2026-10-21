@@ -288,6 +288,14 @@ impl State {
             AppEvent::Limits(l) => self.on_limits(*l),
             AppEvent::Statusline(s) => self.on_statusline(*s),
             AppEvent::Incident(i) => self.on_incident(i),
+            AppEvent::ToolTotals(v) => {
+                for (name, calls, failures, last) in v {
+                    let stat = self.tools.entry(name).or_default();
+                    stat.calls += calls;
+                    stat.failures += failures;
+                    stat.last_ts = Some(stat.last_ts.map_or(last, |l| l.max(last)));
+                }
+            }
             AppEvent::StatsCache(s) => self.stats_cache = Some(s),
             AppEvent::Oauth(o) => self.oauth = o,
             AppEvent::Collector(c, h) => {
@@ -452,7 +460,7 @@ impl State {
     pub fn ensure_sorted(&mut self) {
         if self.needs_sort {
             let reqs = &self.requests;
-            self.sorted.sort_by_key(|&i| reqs[i].ts);
+            self.sorted.sort_by(|&a, &b| reqs[a].ts.cmp(&reqs[b].ts).then(reqs[a].key.cmp(&reqs[b].key)));
             self.needs_sort = false;
         }
     }
@@ -522,12 +530,8 @@ impl State {
         if a.effort.is_some() {
             s.effort = a.effort;
         }
-        if a.user_prompt {
-            s.turns += 1;
-        }
-        if a.compaction {
-            s.compactions += 1;
-        }
+        s.turns += a.turns;
+        s.compactions += a.compactions;
         // Out-of-order lines (parallel scan, hooks racing the transcript) must
         // not move the state backwards.
         if a.ts >= s.state_ts {
@@ -633,7 +637,7 @@ impl State {
                     || s.ended_at.is_some_and(|e| now - e < Duration::seconds(60))
             })
             .collect();
-        v.sort_by_key(|s| std::cmp::Reverse(s.last_ts));
+        v.sort_by(|a, b| b.last_ts.cmp(&a.last_ts).then(a.id.cmp(&b.id)));
         v
     }
 
@@ -886,8 +890,8 @@ mod tests {
             version: None,
             model: None,
             effort: None,
-            user_prompt: false,
-            compaction: false,
+            turns: 0,
+            compactions: 0,
         };
         s.apply(AppEvent::Activity(mk(99, SessionState::Tool("Bash".into()))));
         s.apply(AppEvent::Activity(mk(98, SessionState::Idle)));

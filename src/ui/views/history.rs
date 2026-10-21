@@ -205,7 +205,7 @@ fn model_mix(buf: &mut Buffer, area: Rect, t: &Theme, st: &State, today: NaiveDa
         }
     }
     let mut v: Vec<_> = agg.into_iter().filter(|x| x.1.0 > 0).collect();
-    v.sort_by(|a, b| b.1.1.total_cmp(&a.1.1));
+    v.sort_by(|a, b| b.1.1.total_cmp(&a.1.1).then(a.0.cmp(&b.0)));
     line(
         buf,
         inner,

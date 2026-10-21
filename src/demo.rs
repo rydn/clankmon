@@ -151,8 +151,8 @@ pub fn history(now: DateTime<Utc>, seed: u64) -> Vec<AppEvent> {
             version: Some("2.1.292".into()),
             model: Some(s.model.into()),
             effort: Some(s.effort.into()),
-            user_prompt: true,
-            compaction: false,
+            turns: 1,
+            compactions: 0,
         }));
         for _ in 0..rng.range(3, 25) {
             ev.push(AppEvent::Activity(Activity {
@@ -164,8 +164,8 @@ pub fn history(now: DateTime<Utc>, seed: u64) -> Vec<AppEvent> {
                 version: None,
                 model: None,
                 effort: None,
-                user_prompt: true,
-                compaction: false,
+                turns: 1,
+                compactions: 0,
             }));
         }
         let state = match i {
@@ -183,8 +183,8 @@ pub fn history(now: DateTime<Utc>, seed: u64) -> Vec<AppEvent> {
             version: None,
             model: None,
             effort: None,
-            user_prompt: false,
-            compaction: false,
+            turns: 0,
+            compactions: 0,
         }));
         ev.push(AppEvent::Statusline(Box::new(StatuslineInfo {
             ts: now - Duration::seconds(10),
@@ -273,8 +273,8 @@ pub async fn live(tx: UnboundedSender<AppEvent>, seed: u64) {
                 version: None,
                 model: None,
                 effort: None,
-                user_prompt: rng.chance(0.1),
-                compaction: false,
+                turns: u32::from(rng.chance(0.1)),
+                compactions: 0,
             }),
         ];
         if rng.chance(0.2) {

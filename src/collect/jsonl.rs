@@ -6,6 +6,7 @@
 //! streaming writes one line per content block with the same `message.id`
 //! and `requestId`, so the app merges them by key.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
@@ -28,19 +29,33 @@ use crate::pricing::Pricing;
 // Line schema (only the fields clankmon needs; everything else is skipped).
 // ---------------------------------------------------------------------------
 
+/// Borrowed string: no allocation unless the JSON contains escapes.
+type S<'a> = Option<Cow<'a, str>>;
+
+fn own(s: &S<'_>) -> Option<String> {
+    s.as_deref().map(str::to_string)
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Line {
-    #[serde(rename = "type")]
-    kind: Option<String>,
-    subtype: Option<String>,
+struct Line<'a> {
+    #[serde(rename = "type", borrow)]
+    kind: S<'a>,
+    #[serde(borrow)]
+    subtype: S<'a>,
     timestamp: Option<DateTime<Utc>>,
-    session_id: Option<String>,
-    request_id: Option<String>,
-    uuid: Option<String>,
-    cwd: Option<String>,
-    git_branch: Option<String>,
-    version: Option<String>,
+    #[serde(borrow)]
+    session_id: S<'a>,
+    #[serde(borrow)]
+    request_id: S<'a>,
+    #[serde(borrow)]
+    uuid: S<'a>,
+    #[serde(borrow)]
+    cwd: S<'a>,
+    #[serde(borrow)]
+    git_branch: S<'a>,
+    #[serde(borrow)]
+    version: S<'a>,
     #[serde(default)]
     is_sidechain: bool,
     #[serde(default)]
@@ -48,38 +63,80 @@ struct Line {
     #[serde(default)]
     is_api_error_message: bool,
     api_error_status: Option<serde_json::Value>,
-    effort: Option<String>,
-    per_turn_effort: Option<String>,
+    #[serde(borrow)]
+    effort: S<'a>,
+    #[serde(borrow)]
+    per_turn_effort: S<'a>,
     quota_limits: Option<QuotaLimits>,
     tool_use_result: Option<serde::de::IgnoredAny>,
-    message: Option<Message>,
-    duration_ms: Option<u64>,
+    #[serde(borrow)]
+    message: Option<Message<'a>>,
     error: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
-struct Message {
-    id: Option<String>,
-    model: Option<String>,
-    stop_reason: Option<String>,
+struct Message<'a> {
+    #[serde(borrow)]
+    id: S<'a>,
+    #[serde(borrow)]
+    model: S<'a>,
+    #[serde(borrow)]
+    stop_reason: S<'a>,
     usage: Option<RawUsage>,
-    content: Option<Content>,
+    #[serde(borrow)]
+    content: Option<Content<'a>>,
+}
+
+/// Message content: a plain string or a list of blocks.
+///
+/// Hand-written instead of `#[serde(untagged)]`: untagged enums buffer the whole
+/// value into an intermediate tree before trying variants, which copies every
+/// multi-megabyte tool result. This visitor skips strings without allocating.
+#[derive(Debug)]
+enum Content<'a> {
+    Text,
+    Blocks(Vec<Block<'a>>),
+}
+
+impl<'de: 'a, 'a> Deserialize<'de> for Content<'a> {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V<'a>(std::marker::PhantomData<&'a ()>);
+        impl<'de: 'a, 'a> serde::de::Visitor<'de> for V<'a> {
+            type Value = Content<'a>;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a string or an array of content blocks")
+            }
+            fn visit_str<E: serde::de::Error>(self, _: &str) -> Result<Content<'a>, E> {
+                Ok(Content::Text)
+            }
+            fn visit_borrowed_str<E: serde::de::Error>(self, _: &'de str) -> Result<Content<'a>, E> {
+                Ok(Content::Text)
+            }
+            fn visit_unit<E: serde::de::Error>(self) -> Result<Content<'a>, E> {
+                Ok(Content::Text)
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Content<'a>, A::Error> {
+                let mut out = Vec::new();
+                while let Some(b) = seq.next_element::<Block<'a>>()? {
+                    out.push(b);
+                }
+                Ok(Content::Blocks(out))
+            }
+        }
+        d.deserialize_any(V(std::marker::PhantomData))
+    }
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum Content {
-    Text(#[allow(dead_code)] String),
-    Blocks(Vec<Block>),
-}
-
-#[derive(Debug, Deserialize)]
-struct Block {
-    #[serde(rename = "type")]
-    kind: Option<String>,
-    name: Option<String>,
-    id: Option<String>,
-    tool_use_id: Option<String>,
+struct Block<'a> {
+    #[serde(rename = "type", borrow)]
+    kind: S<'a>,
+    #[serde(borrow)]
+    name: S<'a>,
+    #[serde(borrow)]
+    id: S<'a>,
+    #[serde(borrow)]
+    tool_use_id: S<'a>,
     is_error: Option<bool>,
 }
 
@@ -177,10 +234,7 @@ pub fn parse_line(raw: &str, file_session: Option<&str>, pricing: &Pricing) -> V
     let Some(ts) = line.timestamp else {
         return Vec::new();
     };
-    let session_id = line
-        .session_id
-        .clone()
-        .or_else(|| file_session.map(str::to_string));
+    let session_id = own(&line.session_id).or_else(|| file_session.map(str::to_string));
     let mut out = Vec::new();
 
     match line.kind.as_deref() {
@@ -192,30 +246,30 @@ pub fn parse_line(raw: &str, file_session: Option<&str>, pricing: &Pricing) -> V
     out
 }
 
-fn activity(line: &Line, ts: DateTime<Utc>, sid: &str, state: SessionState) -> Activity {
+fn activity(line: &Line<'_>, ts: DateTime<Utc>, sid: &str, state: SessionState) -> Activity {
     Activity {
         session_id: sid.to_string(),
         ts,
         state,
-        cwd: line.cwd.clone(),
-        branch: line.git_branch.clone(),
-        version: line.version.clone(),
+        cwd: own(&line.cwd),
+        branch: own(&line.git_branch),
+        version: own(&line.version),
         model: None,
-        effort: line.per_turn_effort.clone().or_else(|| line.effort.clone()),
-        user_prompt: false,
-        compaction: false,
+        effort: own(&line.per_turn_effort).or_else(|| own(&line.effort)),
+        turns: 0,
+        compactions: 0,
     }
 }
 
 fn assistant_events(
-    line: &Line,
+    line: &Line<'_>,
     ts: DateTime<Utc>,
     session_id: Option<String>,
     pricing: &Pricing,
     out: &mut Vec<AppEvent>,
 ) {
     let Some(msg) = &line.message else { return };
-    let model = msg.model.clone().unwrap_or_default();
+    let model = own(&msg.model).unwrap_or_default();
 
     // API error lines: a synthetic assistant message carrying the failure.
     if line.is_api_error_message {
@@ -254,35 +308,33 @@ fn assistant_events(
         Some(Content::Blocks(blocks)) => blocks
             .iter()
             .filter(|b| b.kind.as_deref() == Some("tool_use"))
-            .filter_map(|b| b.name.clone().map(|n| (n, b.id.clone())))
+            .filter_map(|b| own(&b.name).map(|n| (n, own(&b.id))))
             .collect(),
         _ => Vec::new(),
     };
 
     if let Some(raw) = &msg.usage {
         let usage = raw.to_usage();
-        let key = line
-            .request_id
-            .clone()
-            .or_else(|| msg.id.clone())
-            .or_else(|| line.uuid.clone())
+        let key = own(&line.request_id)
+            .or_else(|| own(&msg.id))
+            .or_else(|| own(&line.uuid))
             .unwrap_or_default();
         if !key.is_empty() && model != "<synthetic>" {
             let (cost, estimated) = pricing.cost(&model, &usage);
             out.push(AppEvent::Request(Box::new(Request {
                 key,
-                request_id: line.request_id.clone(),
-                message_id: msg.id.clone(),
+                request_id: own(&line.request_id),
+                message_id: own(&msg.id),
                 ts,
                 session_id: session_id.clone(),
-                cwd: line.cwd.clone(),
+                cwd: own(&line.cwd),
                 model: model.clone(),
                 usage,
                 cost_usd: cost,
                 cost_estimated: estimated,
-                stop_reason: msg.stop_reason.clone(),
+                stop_reason: own(&msg.stop_reason),
                 sidechain: line.is_sidechain,
-                effort: line.per_turn_effort.clone().or_else(|| line.effort.clone()),
+                effort: own(&line.per_turn_effort).or_else(|| own(&line.effort)),
                 service_tier: raw.service_tier.clone(),
                 speed: raw.speed.clone(),
                 tools: tools.iter().map(|(n, _)| n.clone()).collect(),
@@ -322,7 +374,7 @@ fn assistant_events(
     }
 }
 
-fn user_events(line: &Line, ts: DateTime<Utc>, session_id: Option<String>, out: &mut Vec<AppEvent>) {
+fn user_events(line: &Line<'_>, ts: DateTime<Utc>, session_id: Option<String>, out: &mut Vec<AppEvent>) {
     if line.is_sidechain || line.is_meta {
         return;
     }
@@ -331,7 +383,7 @@ fn user_events(line: &Line, ts: DateTime<Utc>, session_id: Option<String>, out: 
         Some(Content::Blocks(b)) => Some(b),
         _ => None,
     };
-    let tool_results: Vec<&Block> = blocks
+    let tool_results: Vec<&Block<'_>> = blocks
         .map(|b| b.iter().filter(|b| b.kind.as_deref() == Some("tool_result")).collect())
         .unwrap_or_default();
 
@@ -345,22 +397,22 @@ fn user_events(line: &Line, ts: DateTime<Utc>, session_id: Option<String>, out: 
                 name: String::new(),
                 success: Some(!b.is_error.unwrap_or(false)),
                 duration_ms: None,
-                tool_use_id: b.tool_use_id.clone(),
+                tool_use_id: own(&b.tool_use_id),
             }));
         }
     } else {
         let mut a = activity(line, ts, &sid, SessionState::Thinking);
-        a.user_prompt = true;
+        a.turns = 1;
         out.push(AppEvent::Activity(a));
     }
 }
 
-fn system_events(line: &Line, ts: DateTime<Utc>, session_id: Option<String>, out: &mut Vec<AppEvent>) {
+fn system_events(line: &Line<'_>, ts: DateTime<Utc>, session_id: Option<String>, out: &mut Vec<AppEvent>) {
     let Some(sid) = session_id else { return };
     match line.subtype.as_deref() {
         Some("compact_boundary") => {
             let mut a = activity(line, ts, &sid, SessionState::Thinking);
-            a.compaction = true;
+            a.compactions = 1;
             out.push(AppEvent::Activity(a));
         }
         Some("turn_duration") | Some("stop_hook_summary") => {
@@ -386,7 +438,6 @@ fn system_events(line: &Line, ts: DateTime<Utc>, session_id: Option<String>, out
         }
         _ => {}
     }
-    let _ = line.duration_ms;
 }
 
 fn truncate(s: &str, n: usize) -> String {
@@ -396,6 +447,97 @@ fn truncate(s: &str, n: usize) -> String {
         let mut t: String = s.chars().take(n).collect();
         t.push('…');
         t
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Initial-scan coalescing.
+// ---------------------------------------------------------------------------
+
+/// Coalesces one file's events during the initial scan so memory stays flat:
+/// one merged record per request (streaming writes several lines each), one
+/// activity summary per session, and aggregated tool counts.
+#[derive(Default)]
+struct ScanAcc {
+    requests: HashMap<String, Request>,
+    activity: HashMap<String, Activity>,
+    tools: HashMap<String, (u64, u64, DateTime<Utc>)>,
+    tool_names: HashMap<String, String>,
+    other: Vec<AppEvent>,
+}
+
+impl ScanAcc {
+    fn push(&mut self, ev: AppEvent) {
+        match ev {
+            AppEvent::Request(r) => match self.requests.get_mut(&r.key) {
+                Some(cur) => cur.merge(&r),
+                None => {
+                    self.requests.insert(r.key.clone(), *r);
+                }
+            },
+            AppEvent::Activity(a) => match self.activity.get_mut(&a.session_id) {
+                Some(cur) => {
+                    cur.turns += a.turns;
+                    cur.compactions += a.compactions;
+                    let newer = a.ts >= cur.ts;
+                    if newer {
+                        cur.ts = a.ts;
+                        cur.state = a.state;
+                    }
+                    for (dst, src) in [
+                        (&mut cur.cwd, a.cwd),
+                        (&mut cur.branch, a.branch),
+                        (&mut cur.version, a.version),
+                        (&mut cur.model, a.model),
+                        (&mut cur.effort, a.effort),
+                    ] {
+                        if src.is_some() && (newer || dst.is_none()) {
+                            *dst = src;
+                        }
+                    }
+                }
+                None => {
+                    self.activity.insert(a.session_id.clone(), a);
+                }
+            },
+            AppEvent::Tool(t) => {
+                if !t.name.is_empty() {
+                    // Count each tool_use_id once, even if a stream line repeats.
+                    let first = match &t.tool_use_id {
+                        Some(id) => self.tool_names.insert(id.clone(), t.name.clone()).is_none(),
+                        None => true,
+                    };
+                    let e = self.tools.entry(t.name.clone()).or_insert((0, 0, t.ts));
+                    if first {
+                        e.0 += 1;
+                    }
+                    e.2 = e.2.max(t.ts);
+                }
+                if t.success == Some(false) {
+                    let name = if t.name.is_empty() {
+                        t.tool_use_id.as_ref().and_then(|id| self.tool_names.get(id)).cloned()
+                    } else {
+                        Some(t.name.clone())
+                    };
+                    if let Some(n) = name {
+                        self.tools.entry(n).or_insert((0, 0, t.ts)).1 += 1;
+                    }
+                }
+            }
+            other => self.other.push(other),
+        }
+    }
+
+    fn finish(self) -> Vec<AppEvent> {
+        let mut out: Vec<AppEvent> = self.requests.into_values().map(|r| AppEvent::Request(Box::new(r))).collect();
+        out.extend(self.activity.into_values().map(AppEvent::Activity));
+        if !self.tools.is_empty() {
+            out.push(AppEvent::ToolTotals(
+                self.tools.into_iter().map(|(n, (c, f, l))| (n, c, f, l)).collect(),
+            ));
+        }
+        out.extend(self.other);
+        out
     }
 }
 
@@ -484,7 +626,9 @@ fn read_new_lines(path: &Path, cursor: &mut FileCursor, mut f: impl FnMut(&str))
             buf.clear();
         }
     }
-    cursor.partial = buf;
+    // Keep only the bytes of an unfinished line. Reusing `buf` would retain its
+    // capacity (the file's longest line) in every cursor: ~85 MB over 400 files.
+    cursor.partial = if buf.is_empty() { Vec::new() } else { buf[..].to_vec() };
     cursor.offset = len;
     Ok(lines)
 }
@@ -516,6 +660,7 @@ impl Tailer {
 
         let cursors = self.initial_scan(&files);
         let lines: u64 = cursors.values().map(|c| c.1).sum();
+        crate::mem::release();
         let mut cursors: HashMap<PathBuf, FileCursor> =
             cursors.into_iter().map(|(p, (c, _))| (p, c)).collect();
         let _ = self.tx.send(AppEvent::ScanDone {
@@ -535,6 +680,7 @@ impl Tailer {
         let started = Instant::now();
         let files = discover(&self.projects, self.max_age);
         let res = self.initial_scan(&files);
+        crate::mem::release();
         let _ = self.tx.send(AppEvent::ScanDone {
             files: files.len(),
             lines: res.values().map(|c| c.1).sum(),
@@ -552,7 +698,11 @@ impl Tailer {
         let queue = Arc::new(parking_lot::Mutex::new(files));
         let done = Arc::new(AtomicUsize::new(0));
         let total = queue.lock().len();
-        let threads = std::thread::available_parallelism().map_or(4, |n| n.get()).min(8);
+        let threads = std::env::var("CLANKMON_SCAN_THREADS")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()).min(8))
+            .max(1);
         let results = Arc::new(parking_lot::Mutex::new(HashMap::new()));
 
         std::thread::scope(|s| {
@@ -567,11 +717,14 @@ impl Tailer {
                         let Some((path, _)) = queue.lock().pop() else { break };
                         let sid = session_for_path(&path);
                         let mut cursor = FileCursor::default();
-                        let mut batch = Vec::new();
+                        let mut acc = ScanAcc::default();
                         let n = read_new_lines(&path, &mut cursor, |l| {
-                            batch.extend(parse_line(l, sid.as_deref(), &pricing));
+                            for e in parse_line(l, sid.as_deref(), &pricing) {
+                                acc.push(e);
+                            }
                         })
                         .unwrap_or(0);
+                        let batch = acc.finish();
                         if !batch.is_empty() {
                             let _ = tx.send(AppEvent::Batch(batch));
                         }
@@ -714,14 +867,14 @@ mod tests {
     #[test]
     fn tool_result_marks_thinking_and_failure() {
         let ev = parse_line(TOOL_RESULT, None, &p());
-        assert!(ev.iter().any(|e| matches!(e, AppEvent::Activity(a) if a.state == SessionState::Thinking && !a.user_prompt)));
+        assert!(ev.iter().any(|e| matches!(e, AppEvent::Activity(a) if a.state == SessionState::Thinking && a.turns == 0)));
         assert!(ev.iter().any(|e| matches!(e, AppEvent::Tool(t) if t.success == Some(false))));
     }
 
     #[test]
     fn prompt_counts_a_turn() {
         let ev = parse_line(PROMPT, None, &p());
-        assert!(matches!(&ev[0], AppEvent::Activity(a) if a.user_prompt));
+        assert!(matches!(&ev[0], AppEvent::Activity(a) if a.turns == 1));
     }
 
     #[test]
@@ -741,13 +894,35 @@ mod tests {
     #[test]
     fn compact_boundary_flags_compaction() {
         let ev = parse_line(COMPACT, None, &p());
-        assert!(matches!(&ev[0], AppEvent::Activity(a) if a.compaction));
+        assert!(matches!(&ev[0], AppEvent::Activity(a) if a.compactions == 1));
     }
 
     #[test]
     fn garbage_and_uninteresting_lines_are_ignored() {
         assert!(parse_line("not json", None, &p()).is_empty());
         assert!(parse_line(r#"{"type":"file-history-snapshot","timestamp":"2026-10-21T00:00:00Z"}"#, None, &p()).is_empty());
+    }
+
+    #[test]
+    fn scan_accumulator_coalesces() {
+        let p = p();
+        let mut acc = ScanAcc::default();
+        // The same assistant message twice (streaming), a prompt, a failing tool result.
+        for l in [PROMPT, ASSISTANT, ASSISTANT, TOOL_RESULT] {
+            for e in parse_line(l, None, &p) {
+                acc.push(e);
+            }
+        }
+        let out = acc.finish();
+        let reqs = out.iter().filter(|e| matches!(e, AppEvent::Request(_))).count();
+        assert_eq!(reqs, 1);
+        let acts: Vec<_> = out.iter().filter_map(|e| match e { AppEvent::Activity(a) => Some(a), _ => None }).collect();
+        assert_eq!(acts.len(), 1);
+        assert_eq!(acts[0].turns, 1);
+        assert_eq!(acts[0].state, SessionState::Thinking, "latest line is the tool result");
+        let tools = out.iter().find_map(|e| match e { AppEvent::ToolTotals(t) => Some(t), _ => None }).unwrap();
+        let bash = tools.iter().find(|t| t.0 == "Bash").unwrap();
+        assert_eq!((bash.1, bash.2), (1, 1), "one call despite the repeated line, and one failure");
     }
 
     #[test]

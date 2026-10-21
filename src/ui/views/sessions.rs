@@ -14,7 +14,7 @@ use crate::ui::widgets::{braille_area, hbar, line, mini_bar, panel};
 
 pub fn all_sessions(st: &State) -> Vec<&Session> {
     let mut v: Vec<&Session> = st.sessions.values().filter(|s| s.requests > 0 || s.alive()).collect();
-    v.sort_by(|a, b| b.alive().cmp(&a.alive()).then(b.last_ts.cmp(&a.last_ts)));
+    v.sort_by(|a, b| b.alive().cmp(&a.alive()).then(b.last_ts.cmp(&a.last_ts)).then(a.id.cmp(&b.id)));
     v
 }
 
@@ -182,7 +182,7 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
     // Tool breakdown.
     if y < inner.height {
         let mut tools: Vec<_> = s.tools.iter().collect();
-        tools.sort_by(|a, b| b.1.cmp(a.1));
+        tools.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
         line(buf, inner, y, &Line::from(Span::styled("TOOLS", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))));
         y += 1;
         let max = tools.first().map_or(0, |x| *x.1) as f64;

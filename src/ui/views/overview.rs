@@ -69,14 +69,15 @@ pub fn sorted_sessions(st: &State, sort: SortKey) -> Vec<&Session> {
                 .cmp(&a.alive())
                 .then(rank(a).cmp(&rank(b)))
                 .then(b.last_ts.cmp(&a.last_ts))
+                .then(a.id.cmp(&b.id))
         }),
-        SortKey::Cost => v.sort_by(|a, b| b.cost.total_cmp(&a.cost)),
-        SortKey::Tokens => v.sort_by_key(|s| std::cmp::Reverse(s.usage.total())),
+        SortKey::Cost => v.sort_by(|a, b| b.cost.total_cmp(&a.cost).then(a.id.cmp(&b.id))),
+        SortKey::Tokens => v.sort_by(|a, b| b.usage.total().cmp(&a.usage.total()).then(a.id.cmp(&b.id))),
         SortKey::Cpu => v.sort_by(|a, b| {
             let c = |s: &Session| s.proc.as_ref().and_then(|p| p.cpu_pct).unwrap_or(-1.0);
-            c(b).total_cmp(&c(a))
+            c(b).total_cmp(&c(a)).then(a.id.cmp(&b.id))
         }),
-        SortKey::Name => v.sort_by_key(|s| s.display_name().to_lowercase()),
+        SortKey::Name => v.sort_by(|a, b| a.display_name().to_lowercase().cmp(&b.display_name().to_lowercase()).then(a.id.cmp(&b.id))),
     }
     v
 }
@@ -767,7 +768,7 @@ fn models_tools(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
     }
     let today = st.today();
     let mut models: Vec<(&String, &(u64, f64))> = today.by_model.iter().filter(|(_, v)| v.0 > 0).collect();
-    models.sort_by(|a, b| b.1.1.total_cmp(&a.1.1));
+    models.sort_by(|a, b| b.1.1.total_cmp(&a.1.1).then(a.0.cmp(b.0)));
     let maxc = models.first().map_or(0.0, |m| m.1.1);
     let mut y = 0;
     line(buf, inner, y, &Line::from(Span::styled("TODAY BY MODEL", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))));
@@ -792,7 +793,7 @@ fn models_tools(buf: &mut Buffer, area: Rect, app: &App, st: &State) {
     line(buf, inner, y, &Line::from(Span::styled("TOOLS", Style::new().fg(t.secondary).add_modifier(Modifier::BOLD))));
     y += 1;
     let mut tools: Vec<_> = st.tools.iter().collect();
-    tools.sort_by_key(|x| std::cmp::Reverse(x.1.calls));
+    tools.sort_by(|a, b| b.1.calls.cmp(&a.1.calls).then(a.0.cmp(b.0)));
     let maxt = tools.first().map_or(0, |x| x.1.calls) as f64;
     let bar_w = inner.width.saturating_sub(12 + 6 + 5 + 2) as usize;
     for (name, stat) in tools.iter().take(inner.height.saturating_sub(y) as usize) {

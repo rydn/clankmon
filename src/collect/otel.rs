@@ -176,8 +176,8 @@ fn event_to_app(name: &str, a: &HashMap<String, Value>, ts: DateTime<Utc>, out: 
                     version: a_str(a, "app.version"),
                     model: None,
                     effort: None,
-                    user_prompt: false,
-                    compaction: false,
+                    turns: 0,
+                    compactions: 0,
                 }));
             }
         }

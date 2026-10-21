@@ -294,6 +294,7 @@ async fn event_loop(
     let anim = Duration::from_millis(33);
     let mut paused_buf: Vec<AppEvent> = Vec::new();
     let mut dirty = true;
+    let mut released = false;
     let mut last_draw = Instant::now() - idle;
     let size = terminal.size()?;
     app.fx.startup(Rect::new(0, 0, size.width, size.height));
@@ -354,6 +355,11 @@ async fn event_loop(
             st.persist_requests.clear();
             st.persist_limits.clear();
             st.persist_incidents.clear();
+        }
+
+        if st.scan.finished && !released {
+            released = true;
+            crate::mem::release();
         }
 
         let cues = std::mem::take(&mut st.fx);

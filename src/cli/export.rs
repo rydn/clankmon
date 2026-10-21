@@ -48,6 +48,7 @@ pub fn load(paths: &Paths, days: u32, pricing: Arc<Pricing>) -> State {
     }
     let _ = handle.join();
     st.ensure_sorted();
+    crate::mem::release();
     st
 }
 

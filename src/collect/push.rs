@@ -119,8 +119,8 @@ pub fn hook_events(v: &Value, ts: DateTime<Utc>) -> Vec<AppEvent> {
         version: None,
         model: s(v, &["model"]),
         effort: None,
-        user_prompt: false,
-        compaction: false,
+        turns: 0,
+        compactions: 0,
     };
     match event.as_str() {
         "SessionStart" | "UserPromptSubmit" => {
@@ -157,7 +157,7 @@ pub fn hook_events(v: &Value, ts: DateTime<Utc>) -> Vec<AppEvent> {
         "PreCompact" => out.push(AppEvent::Activity(mk(SessionState::Compacting))),
         "PostCompact" => {
             let mut a = mk(SessionState::Thinking);
-            a.compaction = true;
+            a.compactions = 1;
             out.push(AppEvent::Activity(a));
         }
         "Stop" | "StopFailure" => out.push(AppEvent::Activity(mk(SessionState::Idle))),
