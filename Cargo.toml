@@ -1,0 +1,63 @@
+[package]
+name = "clankmon"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+description = "A cyberpunk htop/bmon-style terminal monitor for Claude Code: live sessions, token throughput, rate limits and cost"
+license = "MIT"
+readme = "README.md"
+keywords = ["claude", "tui", "monitor", "ratatui", "anthropic"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+# TUI
+ratatui = "0.30"
+crossterm = { version = "0.29", features = ["event-stream"] }
+tachyonfx = "0.25"
+tui-big-text = "0.8"
+
+# runtime + plumbing
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+bytes = "1"
+parking_lot = "0.12"
+libc = "0.2"
+
+# data
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+notify = "8"
+directories = "6"
+
+# cli + diagnostics
+clap = { version = "4", features = ["derive", "env"] }
+color-eyre = "0.6"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+# http: proxy, OTLP receiver, OAuth poller
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http = "1"
+http-body-util = "0.1"
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "http2", "ring", "webpki-roots", "tls12", "logging"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+
+[dev-dependencies]
+insta = "1"
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev.package.insta]
+opt-level = 3

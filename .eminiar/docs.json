@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "name": "claude-code-monitoring",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://code.claude.com/docs/en/statusline",
+        "https://code.claude.com/docs/en/monitoring-usage",
+        "https://code.claude.com/docs/en/hooks",
+        "https://code.claude.com/docs/en/costs",
+        "https://code.claude.com/docs/en/settings",
+        "https://docs.claude.com/en/api/rate-limits",
+        "https://docs.claude.com/en/docs/build-with-claude/streaming",
+        "https://docs.claude.com/en/docs/about-claude/pricing"
+      ],
+      "title": "Claude Code statusline, hooks, monitoring, costs",
+      "crawl": {
+        "depth": 0,
+        "maxPages": 10
+      },
+      "tags": [
+        "claude-code",
+        "anthropic"
+      ]
+    },
+    {
+      "name": "crossterm",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://docs.rs/crossterm/latest/crossterm/",
+        "https://docs.rs/crossterm/latest/crossterm/event/index.html"
+      ],
+      "title": "crossterm",
+      "crawl": {
+        "depth": 1,
+        "maxPages": 30
+      },
+      "tags": [
+        "rust"
+      ]
+    },
+    {
+      "name": "hyper",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://hyper.rs/guides/1/",
+        "https://docs.rs/hyper/latest/hyper/",
+        "https://docs.rs/hyper-util/latest/hyper_util/",
+        "https://docs.rs/hyper-rustls/latest/hyper_rustls/",
+        "https://docs.rs/http-body-util/latest/http_body_util/"
+      ],
+      "title": "hyper 1.x + hyper-util",
+      "crawl": {
+        "depth": 2,
+        "maxPages": 80
+      },
+      "tags": [
+        "rust",
+        "http"
+      ]
+    },
+    {
+      "name": "notify",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://docs.rs/notify/latest/notify/",
+        "https://docs.rs/notify-debouncer-full/latest/notify_debouncer_full/"
+      ],
+      "title": "notify file watcher",
+      "crawl": {
+        "depth": 1,
+        "maxPages": 20
+      },
+      "tags": [
+        "rust"
+      ]
+    },
+    {
+      "name": "ratatui",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://ratatui.rs/",
+        "https://ratatui.rs/concepts/",
+        "https://ratatui.rs/recipes/",
+        "https://ratatui.rs/tutorials/",
+        "https://docs.rs/ratatui/latest/ratatui/",
+        "https://docs.rs/ratatui/latest/ratatui/widgets/index.html",
+        "https://docs.rs/ratatui/latest/ratatui/layout/index.html",
+        "https://docs.rs/ratatui/latest/ratatui/style/index.html"
+      ],
+      "title": "Ratatui docs",
+      "crawl": {
+        "depth": 2,
+        "maxPages": 120
+      },
+      "tags": [
+        "rust",
+        "tui"
+      ]
+    },
+    {
+      "name": "rusqlite",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://docs.rs/rusqlite/latest/rusqlite/"
+      ],
+      "title": "rusqlite",
+      "crawl": {
+        "depth": 1,
+        "maxPages": 30
+      },
+      "tags": [
+        "rust",
+        "sqlite"
+      ]
+    },
+    {
+      "name": "tachyonfx",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://docs.rs/tachyonfx/latest/tachyonfx/",
+        "https://docs.rs/tachyonfx/latest/tachyonfx/fx/index.html",
+        "https://github.com/ratatui/tachyonfx",
+        "https://raw.githubusercontent.com/ratatui/tachyonfx/development/README.md"
+      ],
+      "title": "tachyonfx effects",
+      "crawl": {
+        "depth": 1,
+        "maxPages": 60
+      },
+      "tags": [
+        "rust",
+        "tui"
+      ]
+    },
+    {
+      "name": "tui-big-text",
+      "kind": "url",
+      "addedAt": "2026-10-21T19:25:00.496Z",
+      "urls": [
+        "https://docs.rs/tui-big-text/latest/tui_big_text/",
+        "https://raw.githubusercontent.com/joshka/tui-widgets/main/tui-big-text/README.md"
+      ],
+      "title": "tui-big-text",
+      "crawl": {
+        "depth": 1,
+        "maxPages": 20
+      },
+      "tags": [
+        "rust",
+        "tui"
+      ]
+    }
+  ]
+}
