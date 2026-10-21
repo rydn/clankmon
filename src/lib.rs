@@ -1,5 +1,6 @@
 //! clankmon: a cyberpunk htop/bmon-style monitor for Claude Code.
 
+pub mod cli;
 pub mod collect;
 pub mod config;
 pub mod demo;
