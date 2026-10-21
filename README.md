@@ -1,109 +1,211 @@
-# clankmon
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="clankmon: htop + bmon for Claude Code" width="100%">
+</p>
 
-**htop and bmon for Claude Code.** A cyberpunk terminal monitor for live sessions, token throughput, subscription rate limits and cost. It's a single Rust binary that reads what Claude Code already writes, plus optional deeper feeds.
+<p align="center">
+  <a href="https://github.com/rydn/clankmon/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/rydn/clankmon/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=07080d&color=00e5ff"></a>
+  <img alt="Rust" src="https://img.shields.io/badge/rust-1.90%2B-ff2bd6?style=for-the-badge&labelColor=07080d&logo=rust&logoColor=ff2bd6">
+  <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux-f4ff5a?style=for-the-badge&labelColor=07080d&label=runs%20on">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-39ff88?style=for-the-badge&labelColor=07080d"></a>
+</p>
 
-```text
- ▗▛▜▖▜▛  ▗█▖ █▖▐▌▜▌▐▌█▖▟▌▗▛▙ █▖▐▌   PLAN  MAX ▸ theme neon                                                                 20:24:39
- █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting
- ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h
-  ▀▀ ▀▀▀▘▀ ▀ ▀ ▝▘▀▘▝▘▀ ▝▘ ▀▘ ▀ ▝▘   FEED  ●jsonl ●procs ●status ●hooks ●proxy ○otel ○oauth
-╭◢ QUOTA ◣───────────────────────────────── statusline 0s ago ╮╭◢ THROUGHPUT ◣───────────────────────────────────────────── col=1m ╮
-│5H  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▰▱▱▱▱▱▱▱▱   81%  ⟳1h36m ││▲ PROMPT 205k/m pk 370k/m  ■new ■write ■read                       │
-│                  ⢠⣤⣤⣤⣴⣶⣶ ALLOWED pace 68% ▸ 100% in 39m     ││▃ ▂  █▇▅    ▇ ▅▃▇ ▆  ▁ ▃               ▁▃▇  ▆▆     ▁ ▃ ▃  ▃▇  █ ▄  │
-│                                                             ││█ █▃ ███▄▄ ▄█ ███▄█▇██ █ ▂ ▄▄▄ ▂▅▆▃ ▇  ███▄ ██ ▃▄▇▄█ █ █  ██▃▂█ █▅ │
-│7D  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱   70%  ⟳2d12h ││█▇██▃████████▃████████▆█·█▃███▄████▄█▇▃████▃██▃█████▃█·█·▃█████▇██▃│
-│                        ⢰ ALLOWED pace 64% ▸ 100% in 4h59m   ││▼ OUTPUT 2.2k/m pk 5.6k/m  ■text ■thinking                         │
-│                                                             ││ ▂▁▄ ███   ▂█  ▁█ █▂ █▂  ▆ ▁▅  ▄ ▁▃  ▁▁▁ █  █▂ ▂ ▇ ▄▂█ ▃  ▅█▇ █ ▂  │
-│BURN  $10.53/h ▸ 193k tok/m ▸ block ends near $50.16         ││▇███▂███▃▆▂██▂▄█████▇██▄·█▅██▂█████▁▅███▇█████▁█▆█▁███·█·▆███▆█▃█▁▁│
-│BLOCK 18:00→23:00 ▸ $22.89 ▸ 24M tok ▸ 212 req ▸ ends 2h35m  ││req 2.0/m ▸ $13.40/h ▸ hit 94% ▸ ttft 1.0s ▸ p50 12.1s ▸ err 0     │
-╰─────────────────────────────────────────────────────────────╯╰───────────────────────────────────────────────────────────────────╯
-╭◢ PROCESSES ◣─────────────────────────────────────────────────────────────────────────────────── 4 live · 4 shown · sort activity ╮
-│  PID    SESSION            MODEL      STATE           CONTEXT    TURN REQ     TOKENS COST    LAST  PROJECT                       │
-│⏸ 41111  deck-firmware      Sonnet 5.5 permission 1m   ▱▱▱▱▱ 4.1% 13   187+30  10M    $9.57   10s   /home/neo/src/netrunner/deck ⎇│
-│⚙ 41037  night-city         Opus 5.5   Bash 5s         ▰▱▱▱▱  18% 7    192+32  37M    $20.28  5s    /home/neo/src/night-city/api ⎇│
-│◐ 41074  ice-breaker        Fable 5.1  thinking 45s    ▱▱▱▱▱ 9.6% 25   181+28  20M    $40.47  10s   /home/neo/src/arasaka/ice-brea│
-│○ 41148  bar-tab            Haiku 4.5  idle            ▱▱▱▱▱ 6.0% 12   140+22  3.2M   $2.67   10s   /home/neo/src/afterlife/bar-ta│
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <b>A cyberpunk terminal monitor for <a href="https://code.claude.com">Claude Code</a>.</b><br>
+  Live sessions, token throughput, rate limits and cost, streaming in as it happens.<br>
+  <sub>One 9 MB Rust binary · reads what Claude Code already writes · nothing leaves your machine</sub>
+</p>
 
-<sub>`clankmon --demo snapshot`, so every name and number above is synthetic. In the terminal it's neon on near-black, with tachyonfx effects.</sub>
+<p align="center">
+  <img src="docs/assets/demo.svg" alt="clankmon overview, animated: quota gauges, throughput graphs filling live, the process table and requests streaming through the proxy" width="100%">
+</p>
 
-## Features
+<p align="center"><sub>↑ <code>clankmon --demo</code>, rendered with <code>clankmon snapshot --svg</code>. Every name and number is synthetic.</sub></p>
 
-- **Live processes, htop style.** Every running Claude Code session shows its PID, model, effort, state (`◐ thinking`, `⚙ Bash`, `⏸ permission`, `◇ compacting`), context fill, turns, requests (plus subagent requests), tokens, cache hit rate, cost, CPU, memory and project. Sessions waiting for permission sort to the top.
-- **Quota gauges.** The 5-hour and 7-day subscription windows come with a pace marker, reset countdown, trend sparkline and a least-squares projection of when you'll hit 100%. Per-model weekly windows and API-key buckets appear when a source provides them.
-- **bmon-style throughput.** Stacked graphs show prompt tokens (cache read, cache write, fresh) and output tokens (text, thinking) in tokens per minute, with a smooth "now" rate, request rate, cost burn, cache hit, TTFT and latency. Columns are aligned to the wall clock and never change once they've passed. The live column is tinted, and the axis ignores rare spikes, which clip with a `▲` cap. Zoom from 1-second to 15-minute columns; `g` switches to log scale.
-- **The wire.** A live feed of every API turn with tokens, cost, stop reason, latency, tools called and which sources saw it.
-- **Five views.** Overview, Sessions (per-session detail with a context-growth chart), Requests (filterable log with a detail popup), History (30-day cost and token bars, an hour×weekday heatmap, model mix) and Limits (utilisation chart, per-source readings, 429 incidents).
-- **Cost at list price.** Every request is priced from an embedded, overridable table that's aware of the 5-minute and 1-hour cache-write TTLs. This is API-equivalent spend; subscription usage isn't billed per token.
-- **Cyberpunk console.** Four themes (`neon`, `synthwave`, `matrix`, `mono`), pure Unicode glyphs (no Nerd Font needed), true colour with an automatic 256-colour fallback, `NO_COLOR` support, and effects that only run while they're visible.
-- **Light.** One 9 MB binary. A 30-day backfill of 560 MB of transcripts scans in under a second and peaks under 50 MB RSS. The status line and hook clients run in about 4 ms.
+<br>
 
-## Install
+## ◢ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**▸ Live processes, htop style**<br>
+Every running Claude Code session shows its PID, model, effort, state, context fill, turns, requests, tokens, cache hit, cost, CPU, memory and project. The states are `◐ thinking`, `⚙ tool`, `⏸ permission` and `◇ compacting`. Sessions waiting on you sort to the top.
+
+</td>
+<td width="50%" valign="top">
+
+**▸ Quota you can plan around**<br>
+5-hour and 7-day subscription windows come with a pace marker, a reset countdown and a trend line. A least-squares projection says when you'll hit 100%. Per-model and API-key windows appear when a source reports them.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**▸ bmon-style throughput**<br>
+Stacked graphs of prompt and output tokens per minute, aligned to the wall clock so columns never reshuffle. A smooth "now" rate, a spike-proof axis with a `▲` overflow cap, and zoom from 1-second to 15-minute columns.
+
+</td>
+<td valign="top">
+
+**▸ Streams, live through the proxy**<br>
+With the proxy on, prompts land the moment a request starts and output fills the live column while the model types. In-flight requests show elapsed time, TTFT and tokens per second. Final counts reconcile exactly.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**▸ The wire**<br>
+A feed of every API turn: tokens by kind, cost, stop reason, latency, tools called, and which sources saw it. Filter with <kbd>/</kbd> and open any request for its full record, including rate-limit headers.
+
+</td>
+<td valign="top">
+
+**▸ Cost at list price**<br>
+Every request is priced from an embedded, overridable table that knows the 5-minute and 1-hour cache-write rates. Daily, per-model and per-session totals add up to the cent.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**▸ A console with style**<br>
+Four themes, pure Unicode (no Nerd Font), true colour with an automatic 256-colour fallback, and `NO_COLOR` support. tachyonfx effects run only while they're visible.
+
+</td>
+<td valign="top">
+
+**▸ Light on its feet**<br>
+A 30-day backfill of 560 MB of transcripts takes under a second and peaks under 50 MB. Idle CPU is about 0.4%. The status line and hook clients run in about 4 ms.
+
+</td>
+</tr>
+</table>
+
+## ◢ Install
 
 ```sh
-cargo install --path .        # from a clone; Rust 1.90+
-clankmon install              # wire Claude Code's status line and hooks (asks first, backs up settings.json)
-clankmon                      # run the monitor
+cargo install --git https://github.com/rydn/clankmon   # Rust 1.90+
+clankmon install    # feed live quota from Claude Code (asks first, backs up settings.json)
+clankmon            # jack in
 ```
 
-`clankmon doctor` shows which data sources are live and how to turn on the rest.
+<kbd>clankmon doctor</kbd> shows which data sources are live and how to switch on the rest. <kbd>clankmon --demo</kbd> runs the whole UI on synthetic traffic.
 
-## Data sources
+## ◢ Views
 
-clankmon merges every source into one record per API request, keyed by Anthropic's request ID, so nothing is double counted. The `SRC` column shows which sources saw each request: `J` for transcript, `P` for proxy, `O` for OTel.
+<table>
+<tr>
+<td width="50%"><b>2 · SESSIONS</b>, every session with its context growth and tool mix<br><img src="docs/assets/sessions.svg" alt="Sessions view"></td>
+<td width="50%"><b>3 · REQUESTS</b>, the filterable log with in-flight streams on top<br><img src="docs/assets/requests.svg" alt="Requests view"></td>
+</tr>
+<tr>
+<td><b>4 · HISTORY</b>, 30-day cost and tokens, an hour × weekday heatmap and the model mix<br><img src="docs/assets/history.svg" alt="History view"></td>
+<td><b>5 · LIMITS</b>, the utilisation chart, per-source readings and 429 incidents<br><img src="docs/assets/limits.svg" alt="Limits view"></td>
+</tr>
+</table>
 
-| Source | Setup | What it adds |
-|---|---|---|
-| **Transcripts** `~/.claude/projects/**/*.jsonl` | none | every API turn: tokens by kind, model, stop reason, tools, subagents, effort, 429s and quota rejections |
-| **Session registry** `~/.claude/sessions/*.json` + `ps` | none | the live process list, CPU and memory |
-| **Status line** | `clankmon install` | 5h/7d utilisation and resets (Pro/Max), context %, Claude Code's own cost figure, prompt-cache stats |
-| **Hooks** (async, never block) | `clankmon install` | permission waits, compaction, session start/end, tool failures |
-| **Proxy** | `clankmon proxy` + `ANTHROPIC_BASE_URL` | exact server-side limits on every response (`anthropic-ratelimit-unified-*`), API-key buckets, TTFT, request shape, 429 details |
-| **OpenTelemetry** | `clankmon install --otel` + `clankmon --otel` | Claude Code's `api_request`, `tool_result` and `api_error` events |
-| **OAuth usage** | `clankmon --oauth` | per-model weekly limits and extra usage from the endpoint behind `/usage`. It's undocumented and rate limited, so clankmon polls it every 10 minutes or less often and backs off. |
+## ◢ Themes
 
-clankmon wraps an existing status line instead of replacing it, and its output is shown unchanged. Without one, clankmon prints its own neon status line with model, context, quota and cost.
+<p align="center"><img src="docs/assets/themes.svg" alt="neon, synthwave, matrix and mono themes" width="100%"></p>
+<p align="center">Cycle with <kbd>t</kbd>, or set <code>--theme neon | synthwave | matrix | mono</code>.</p>
 
-### Proxy
+## ◢ Data sources
+
+clankmon merges every source into **one record per API request**, keyed by Anthropic's request ID, so nothing is counted twice. The `SRC` column shows which sources saw each request: <code>J</code> for transcript, <code>P</code> for proxy, <code>O</code> for OTel.
+
+| | Source | Setup | What it adds |
+|:-:|---|---|---|
+| ● | **Transcripts** `~/.claude/projects/**/*.jsonl` | none | every API turn: tokens by kind, model, stop reason, tools, subagents, effort, 429s and quota rejections |
+| ● | **Session registry** `~/.claude/sessions` + `ps` | none | the live process list, CPU and memory |
+| ◆ | **Status line** | `clankmon install` | 5h/7d utilisation and resets (Pro/Max), context %, Claude Code's own cost, prompt-cache stats |
+| ◆ | **Hooks** (async, never block) | `clankmon install` | permission waits, compaction, session start/end, tool failures |
+| ↯ | **Proxy** | `clankmon proxy` + `ANTHROPIC_BASE_URL` | live streams, exact server-side limits on every response, TTFT, generation speed, request shape, 429 details |
+| ○ | **OpenTelemetry** | `clankmon install --otel` + `clankmon --otel` | Claude Code's `api_request`, `tool_result` and `api_error` events |
+| ○ | **OAuth usage** | `clankmon --oauth` | per-model weekly limits and extra usage from the endpoint behind `/usage`. It's undocumented and rate limited, so clankmon polls it every 10 minutes or less often and backs off. |
+
+```mermaid
+%%{init: {'theme':'dark','themeVariables':{'primaryColor':'#0b0d16','primaryTextColor':'#c8cce0','primaryBorderColor':'#ff2bd6','lineColor':'#00e5ff','secondaryColor':'#0b0d16','tertiaryColor':'#07080d','fontFamily':'monospace'}}}%%
+flowchart LR
+  T[transcripts]:::src --> R
+  S[sessions + ps]:::src --> R
+  SL[status line]:::push --> IPC
+  H[hooks]:::push --> IPC
+  P[proxy ↯]:::live --> IPC
+  O[OTel]:::opt --> R
+  A[OAuth usage]:::opt --> R
+  IPC[(unix socket<br>spool if TUI is down)] --> R
+  R{{reducer<br>one record per request}} --> DB[(SQLite)]
+  R --> UI[ratatui + tachyonfx]
+  classDef src stroke:#00e5ff
+  classDef push stroke:#f4ff5a
+  classDef live stroke:#39ff88
+  classDef opt stroke:#7c819a
+```
+
+<details>
+<summary><b>▸ The proxy, and live streaming</b></summary>
+<br>
 
 ```sh
 clankmon proxy                                  # 127.0.0.1:8484 → api.anthropic.com
 export ANTHROPIC_BASE_URL=http://127.0.0.1:8484 # in the shell where you run claude
 ```
 
-The proxy forwards requests untouched, including auth, and streams responses back chunk by chunk while a copy feeds the SSE parser. It works with subscription (OAuth) and API-key auth. It records token counts, timings and headers, never prompt or completion text unless you pass `--capture-bodies`. You can also host it inside the TUI with `clankmon --proxy`. The standalone proxy forwards to a running TUI, or spools records for the next start.
+The proxy forwards requests untouched, including auth, and streams responses back chunk by chunk while a copy feeds an SSE parser. It works with subscription (OAuth) and API-key auth. While a reply streams, clankmon sees:
 
-## Keys
+- **Prompt tokens** the moment `message_start` arrives, so the prompt graph moves when a request starts, not when it ends.
+- **Estimated output tokens** at most every 200 ms, from streamed characters (about 4 per token). Hidden thinking streams no text, so the estimate runs low during thinking.
+- **Exact final counts** from `message_delta`. The reducer subtracts what was already drawn, so totals are exact.
 
-| Key | Action |
+The proxy records token counts, timings and headers, never prompt or completion text unless you pass `--capture-bodies`. Host it inside the TUI with `clankmon --proxy`, or run it standalone. The standalone proxy forwards to a running TUI, or spools records for the next start.
+
+</details>
+
+<details>
+<summary><b>▸ Status line</b></summary>
+<br>
+
+`clankmon install` points Claude Code's status line at clankmon. An existing status line is **wrapped**, not replaced: its output is shown unchanged and clankmon just reads the JSON on the way past. Without one, clankmon prints its own neon line with model, context, quota and cost. `clankmon uninstall` restores whatever was there before.
+
+</details>
+
+## ◢ Keys
+
+| | |
 |---|---|
-| `1`–`5`, `Tab` | overview · sessions · requests · history · limits |
-| `↑↓` `jk` `PgUp` `PgDn` | select |
-| `Enter` | open the session (overview) or request detail (requests) |
-| `/` | filter requests by session, model, stop reason, tool or `error` |
-| `s` | sort processes: activity, cost, tokens, cpu, name |
-| `+` `-` | graph column width; chart span in Limits |
-| `g` `t` `f` | log scale · theme · effects |
-| `p` / `space` | pause the feed (events are buffered) |
-| `?` `q` | help · quit |
+| <kbd>1</kbd>–<kbd>5</kbd> <kbd>Tab</kbd> | overview · sessions · requests · history · limits |
+| <kbd>↑</kbd><kbd>↓</kbd> <kbd>j</kbd><kbd>k</kbd> <kbd>PgUp</kbd><kbd>PgDn</kbd> | select |
+| <kbd>Enter</kbd> | open the session (overview) or request detail (requests) |
+| <kbd>/</kbd> | filter requests by session, model, stop reason, tool or `error` |
+| <kbd>s</kbd> | sort processes: activity, cost, tokens, cpu, name |
+| <kbd>+</kbd> <kbd>-</kbd> | graph column width 1s…15m · chart span in Limits |
+| <kbd>g</kbd> <kbd>t</kbd> <kbd>f</kbd> | log scale · theme · effects |
+| <kbd>p</kbd> / <kbd>Space</kbd> | pause the feed (events are buffered) |
+| <kbd>?</kbd> <kbd>q</kbd> | help · quit |
 
-## Commands
+## ◢ Commands
 
 ```text
 clankmon [--theme T] [--no-fx] [--days N] [--proxy[=PORT]] [--otel[=PORT]] [--oauth] [--demo]
 clankmon install [--statusline] [--hooks] [--otel] [--dry-run] [--yes]
-clankmon uninstall [--dry-run] [--yes]        # restores a wrapped status line
+clankmon uninstall [--dry-run] [--yes]
 clankmon proxy [--port P] [--upstream URL] [--print-env] [--capture-bodies] [--quiet]
 clankmon doctor
-clankmon snapshot [--view V] [--width W] [--height H] [--ansi]   # one frame to stdout
+clankmon snapshot [--view V] [--width W] [--height H] [--ansi | --svg [--title T]]
 clankmon export [--format csv|jsonl|daily] [--since 7d] [-o FILE]
-clankmon config                               # print an example ~/.clankmon/config.toml
+clankmon config
 ```
 
-## Configuration
+`snapshot --svg` renders a frame of your real dashboard as a crisp, shareable SVG. Every image on this page was made that way.
 
-`~/.clankmon/config.toml` is optional. Run `clankmon config` for a commented example. You can set the theme, history days, frame rate, a daily budget, proxy/OTel/OAuth defaults, and price overrides:
+<details>
+<summary><b>▸ Configuration</b></summary>
+<br>
+
+`~/.clankmon/config.toml` is optional. Run `clankmon config` for a commented example.
 
 ```toml
 theme = "synthwave"
@@ -121,35 +223,24 @@ cache_read = 0.20
 
 `CLAUDE_CONFIG_DIR` (or `--claude-dir`) points at a non-default Claude Code directory. `CLANKMON_HOME` moves clankmon's own state, and `CLANKMON_LOG` sets the log filter (the log is at `~/.clankmon/clankmon.log`).
 
-## Privacy
+</details>
 
-Everything stays on your machine. clankmon reads Claude Code's local files. It talks to the network only through the opt-in proxy (which forwards your own requests) and the opt-in OAuth poller (one read-only call, using Claude Code's token, which clankmon never stores or refreshes). Telemetry from Claude Code goes only to the loopback receiver you start.
+## ◢ Privacy
 
-## How it's built
+Everything stays on your machine. clankmon reads Claude Code's local files. It talks to the network only through the opt-in proxy, which forwards your own requests, and the opt-in OAuth poller, which makes one read-only call with Claude Code's token. clankmon never stores or refreshes that token. Telemetry from Claude Code goes only to the loopback receiver you start.
 
-```text
- transcripts ─┐  notify tail, parallel scan
- sessions/   ─┤  1 s poll + ps
- statusline  ─┤                                   ┌─ store (SQLite, ~/.clankmon)
- hooks       ─┼─ Unix socket ── AppEvent channel ─┼─ reducer (one record per request)
- proxy       ─┤  (spool if TUI is down)           └─ ratatui + tachyonfx, 4 Hz idle / 30 fps animating
- otel        ─┤
- oauth       ─┘
-```
-
-Built with ratatui, tachyonfx, tui-big-text, tokio, hyper and rustls, and rusqlite. The data layer lives in `src/collect`, `src/state.rs` and `src/windows.rs`; the UI lives in `src/ui`.
+## ◢ Building
 
 ```sh
-cargo test                    # unit, snapshot (insta) and proxy/OTLP integration tests
+cargo test                                 # unit, render-snapshot and proxy/OTLP integration tests
 cargo clippy --all-targets -- -D warnings
-clankmon --demo               # try the UI on synthetic traffic
-vhs docs/demo.tape            # record docs/demo.gif (needs charmbracelet/vhs)
+cargo run --release --example docs         # regenerate docs/assets/*.svg from the demo
 ```
 
-## Prior art
+The data layer lives in `src/collect`, `src/state.rs` and `src/windows.rs`; the proxy in `src/proxy`; the UI and SVG renderer in `src/ui`.
+
+## ◢ Prior art
 
 Inspired by [ccusage](https://github.com/ryoppippi/ccusage) (transcript parsing, 5-hour blocks), [Claude-Code-Usage-Monitor](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor) (forecasting), [claudeMon](https://github.com/woffko/claudeMon) (status-line limits feed), [claude-rate-monitor](https://github.com/nsanden/claude-rate-monitor) (unified limit headers), and of course htop and bmon.
 
-## License
-
-MIT
+<p align="center"><sub>MIT · built with <a href="https://ratatui.rs">ratatui</a>, <a href="https://github.com/ratatui/tachyonfx">tachyonfx</a>, tokio and hyper</sub></p>
