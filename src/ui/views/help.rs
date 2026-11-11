@@ -45,6 +45,11 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &App) {
         k("otel", "clankmon --otel + OTLP http/json env vars"),
         k("oauth", "clankmon --oauth: /api/oauth/usage, polled slowly"),
         Line::raw(""),
+        h("ENERGY ≈ (estimate, never measured)"),
+        k("≈ Wh / W", "tokens × assumed Wh per million tokens by model tier"),
+        k("source", crate::energy::SOURCE),
+        k("caveat", "Anthropic publishes no per-token energy; order of magnitude only"),
+        Line::raw(""),
         Line::from(Span::styled(
             "  costs are list-price equivalents; subscription usage is not billed per token",
             Style::new().fg(t.dim),

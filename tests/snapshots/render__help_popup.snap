@@ -1,0 +1,49 @@
+---
+source: tests/render.rs
+expression: "render_with(View::Overview, 160, 45, true)"
+---
+ ▗▛▜▖▜▛  ▗█▖ █▖▐▌▜▌▐▌█▖▟▌▗▛▙ █▖▐▌   PLAN  MAX · max 20x ▸ theme neon                                                                                   19:30:00 
+ █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting ▸ ↯ 2 streaming 84 tok/s                                                              
+ ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h ▸ ≈1.07 kWh est.                                                               
+  ▀▀ ▀▀▀▘▀ ▀ ▀ ▝▘▀▘▝▘▀ ▝▘ ▀▘ ▀ ▝▘   FEED  ●jsonl ●procs ●status ●hooks ●proxy ○otel ○oauth                                                                      
+╭◢ QUOTA ◣─────────────────────────────────────────────── statusline 0s ago ╮╭◢ THROUGHPUT ◣──────────────────────────────────────────────────── 10s/col · 12m ╮
+│5H  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰╔ ◢ CLANKMON HELP ◣ ═══════════════════════════════════════════════════════════════╗ite ■new                             │
+│                       ⢠⣤⣤⣤⣤⣴⣶⣶⣶ ALLO║KEYS                                                                              ║┊           ┊        ▂  ┊           ┊│
+│                                     ║  1-5 tab     overview · sessions · requests · history · limits                   ║┊┈┈┈┈┈┈┈┈▄┈┈┊┈┈┈┈┈┈┈┈█┈┈┊┈┈▃┈┈┈┈┈┈┈█┊│
+│7D  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰║  ↑↓ jk pgup  move selection                                                      ║▃    ▆ ▁██  ┊   ▆    █  ┊  █    ▃  █┊│
+│                               ⢰ ALLO║  enter       open session (overview) · request detail (requests)                 ║nking  ↯ 2 streaming  84 tok/s       │
+│                                     ║  /           filter requests by session, model, stop, tool or 'error'            ║┊       ▆   ┊        ▁  ┊           ┊│
+│                                     ║  s           cycle process sort: activity cost tokens cpu name                   ║┊┈┈┈┈┈┈┈▇▄┈┈┊┈┈┈┈┈┈┈┈▃┈┈┊┈┈┈┈┈┈┈┈┈┈┈┊│
+│BURN  $10.53/h ▸ 193k tok/m ▸ block e║  + -         graph column width 1s…15m · limits chart span                       ║▅    ▅ ▆██  ┊   ▆    █  ┊  ▁    ▁  ▂┊│
+│BLOCK 17:00→22:00 ▸ $22.89 ▸ 24M tok ║  g           log scale (linear clips rare spikes with ▲)                         ║ p50 12.1s ▸ gen 103 tok/s ▸ err 0   │
+╰─────────────────────────────────────║  t f         cycle theme · toggle effects                                        ║─────────────────────────────────────╯
+╭◢ PROCESSES ◣────────────────────────║  p space     pause the feed (events are buffered)                                ║─── 4 live · 4 shown · sort activity ╮
+│  PID    SESSION            MODEL    ║  q esc       quit                                                                ║PROJECT                              │
+│⏸ 41111  deck-firmware      Sonnet 5.║                                                                                  ║/home/neo/src/netrunner/deck ⎇ fix/de│
+│◐ 41074  ice-breaker        Fable 5.1║STATES                                                                            ║/home/neo/src/arasaka/ice-breaker ⎇ f│
+│◐ 41037  night-city         Opus 5.5 ║  ◐ thinking  waiting on the model                                                ║/home/neo/src/night-city/api ⎇ main  │
+│○ 41148  bar-tab            Haiku 4.5║  ⚙ tool      running a tool                                                      ║/home/neo/src/afterlife/bar-tab ⎇ mai│
+╰─────────────────────────────────────║  ⏸ permissionblocked on a permission prompt (needs hooks)                        ║─────────────────────────────────────╯
+╭◢ WIRE ◣─────────────────────────────║  ◇ compactingconversation compaction                                             ║ODELS · TOOLS ◣──────────────────────╮
+│TIME     SESSION        MODEL       I║  ○ idle  ✕ endedturn done · process exited                                       ║AY BY MODEL                          │
+│19:29:58 night-city     Opus 5.5    3║                                                                                  ║le 5.1  ███████████████████  $12.55  │
+│19:29:55 ice-breaker    Fable 5.1   7║SOURCES (SRC column: J transcript · P proxy · O otel)                             ║s 5.5   ███████████▊          $7.73  │
+│19:29:29 deck-firmware  Sonnet 5.5  6║  jsonl       ~/.claude/projects transcripts, always on                           ║net 5.5 █████▏                $3.36  │
+│19:28:39 night-city     Opus 5.5    3║  procs       ~/.claude/sessions registry + ps                                    ║ku 4.5  ▌                     $0.29  │
+│19:27:33 ice-breaker    ↳Fable 5.1  5║  status hooksclankmon install wires Claude Code's statusline and hooks           ║                                     │
+│19:27:32 night-city     Opus 5.5    7║  proxy       clankmon proxy + ANTHROPIC_BASE_URL: exact limit headers, TTFT      ║                                     │
+│19:26:48 ice-breaker    Fable 5.1   9║  otel        clankmon --otel + OTLP http/json env vars                           ║                                     │
+│19:25:37 night-city     Opus 5.5    4║  oauth       clankmon --oauth: /api/oauth/usage, polled slowly                   ║                                     │
+│19:25:27 deck-firmware  Sonnet 5.5  6║                                                                                  ║                                     │
+│19:25:25 ice-breaker    ↳Fable 5.1  7║ENERGY ≈ (estimate, never measured)                                               ║LS                                   │
+│19:25:11 bar-tab        ↳Haiku 4.5  8║  ≈ Wh / W    tokens × assumed Wh per million tokens by model tier                ║d        ███████████████    90   9%  │
+│19:24:57 ice-breaker    Fable 5.1   6║  source      clankmon v1 assumption; anchor: Epoch AI 2025, ~0.3 Wh/chat query   ║b        ████████████▋      76   4%  │
+│19:24:04 deck-firmware  Sonnet 5.5  4║  caveat      Anthropic publishes no per-token energy; order of magnitude only    ║:create_…████████████▏      73   7%  │
+│19:23:45 deck-firmware  Sonnet 5.5  1║                                                                                  ║h        ███████████▉       71   4%  │
+│19:23:26 bar-tab        Haiku 4.5   1║  costs are list-price equivalents; subscription usage is not billed per token    ║Fetch    █████████▉         59   3%  │
+│19:23:14 ice-breaker    Fable 5.1   7╚════════════════════════════════════════════════════════════════ any key to close ╝t        █████████▌         57   4%  │
+│19:22:58 ice-breaker    Fable 5.1   604    101k   21k    1.8k   $0.55    tool use    1.4s    J·· Edit               ││Grep        ███▌               21   5%  │
+│19:22:43 deck-firmware  ↳Sonnet 5.5 781    44k    823    893    $0.02    tool use    2.2s    J·· WebFetch           ││Write       ███▍               20   5%  │
+│19:22:25 night-city     Opus 5.5    623    188k   1.4k   1.2k   $0.07    tool use    804ms   JP· Edit               ││                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯╰────────────────────────────────────────╯
+1OVERVIEW 2SESSIONS 3REQUESTS 4HISTORY 5LIMITS  ?Help qQuit sSort tTheme pPause +-Zoom gLog                                                       sort:activity

@@ -595,6 +595,9 @@ fn render_header_tall(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         val(format!("{} req", today.requests)),
         sep(),
         Span::styled(format!("{}/h", fmt::money(burn.cost_per_hour)), Style::new().fg(t.primary)),
+        sep(),
+        Span::styled(fmt::energy(today.energy_wh), Style::new().fg(t.ok)),
+        Span::styled(" est.", Style::new().fg(t.dim)),
     ]);
     let l4 = if st.scan.finished {
         let mut v = vec![tag("FEED")];

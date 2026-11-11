@@ -35,6 +35,38 @@ pub fn money(c: f64) -> String {
     }
 }
 
+/// Estimated energy: "≈350 mWh", "≈4.3 Wh", "≈1.62 kWh". Always carries the estimate sign.
+pub fn energy(wh: f64) -> String {
+    if !wh.is_finite() || wh <= 0.0 {
+        "≈0 Wh".into()
+    } else if wh < 1.0 {
+        format!("≈{:.0} mWh", wh * 1e3)
+    } else if wh < 10.0 {
+        format!("≈{wh:.1} Wh")
+    } else if wh < 1e3 {
+        format!("≈{wh:.0} Wh")
+    } else if wh < 1e4 {
+        format!("≈{:.2} kWh", wh / 1e3)
+    } else if wh < 1e6 {
+        format!("≈{:.1} kWh", wh / 1e3)
+    } else {
+        format!("≈{:.2} MWh", wh / 1e6)
+    }
+}
+
+/// Estimated mean power: "≈850 W", "≈1.5 kW".
+pub fn power(w: f64) -> String {
+    if !w.is_finite() || w <= 0.0 {
+        "≈0 W".into()
+    } else if w < 10.0 {
+        format!("≈{w:.1} W")
+    } else if w < 1e3 {
+        format!("≈{w:.0} W")
+    } else {
+        format!("≈{:.1} kW", w / 1e3)
+    }
+}
+
 /// Seconds as "42s", "3m", "2h05m", "3d4h".
 pub fn dur_secs(s: i64) -> String {
     let s = s.max(0);
@@ -108,5 +140,36 @@ mod tests {
         assert_eq!(pct(4.25), "4.2%");
         assert_eq!(pct(99.62), "99.6%");
         assert_eq!(pct(100.0), "100%");
+    }
+
+    #[test]
+    fn energy_and_power() {
+        assert_eq!(energy(0.0), "≈0 Wh");
+        assert_eq!(energy(0.35), "≈350 mWh");
+        assert_eq!(energy(4.26), "≈4.3 Wh");
+        assert_eq!(energy(412.0), "≈412 Wh");
+        assert_eq!(energy(1620.0), "≈1.62 kWh");
+        assert_eq!(energy(f64::NAN), "≈0 Wh");
+        assert_eq!(power(850.0), "≈850 W");
+        assert_eq!(power(1500.0), "≈1.5 kW");
+        assert_eq!(power(-1.0), "≈0 W");
+    }
+
+    #[test]
+    fn energy_unit_boundaries() {
+        assert_eq!(energy(0.9994), "≈999 mWh");
+        assert_eq!(energy(1.0), "≈1.0 Wh");
+        assert_eq!(energy(9.94), "≈9.9 Wh");
+        assert_eq!(energy(10.0), "≈10 Wh");
+        assert_eq!(energy(999.0), "≈999 Wh");
+        assert_eq!(energy(1000.0), "≈1.00 kWh");
+        assert_eq!(energy(9990.0), "≈9.99 kWh");
+        assert_eq!(energy(10_000.0), "≈10.0 kWh");
+        assert_eq!(energy(1e6), "≈1.00 MWh");
+        assert_eq!(energy(f64::INFINITY), "≈0 Wh");
+        assert_eq!(power(9.9), "≈9.9 W");
+        assert_eq!(power(999.0), "≈999 W");
+        assert_eq!(power(1000.0), "≈1.0 kW");
+        assert_eq!(power(f64::NAN), "≈0 W");
     }
 }

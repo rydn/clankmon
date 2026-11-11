@@ -4,7 +4,7 @@ expression: "render(View::Sessions, 160, 45)"
 ---
  ▗▛▜▖▜▛  ▗█▖ █▖▐▌▜▌▐▌█▖▟▌▗▛▙ █▖▐▌   PLAN  MAX · max 20x ▸ theme neon                                                                                   19:30:00 
  █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting ▸ ↯ 2 streaming 84 tok/s                                                              
- ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h                                                                                
+ ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h ▸ ≈1.07 kWh est.                                                               
   ▀▀ ▀▀▀▘▀ ▀ ▀ ▝▘▀▘▝▘▀ ▝▘ ▀▘ ▀ ▝▘   FEED  ●jsonl ●procs ●status ●hooks ●proxy ○otel ○oauth                                                                      
 ╭◢ SESSIONS ◣────────────────────────────────────────────── 4 sessions ╮╭◢ SESSION d3m00002 ◣──────────────────────────────────────────────────────────────────╮
 │   SESSION                            MODEL      REQ   COST     LAST  ││ice-breaker                                                                           │
@@ -17,6 +17,7 @@ expression: "render(View::Sessions, 160, 45)"
 │                                                                      ││turns      25 · 181 requests · 28 subagent · 0 errors · 0 compactions                 │
 │                                                                      ││tokens     in 80k · read 18M · write 1.2M · out 234k · think 78k                      │
 │                                                                      ││cost       $40.47 list price                                                          │
+│                                                                      ││energy     ≈1.36 kWh est. · assumed rates, ? for method                               │
 │                                                                      ││context    ▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱ 9.6% (102k tok)                                       │
 │                                                                      ││cache hit  94%                                                                        │
 │                                                                      ││                                                                                      │
@@ -35,7 +36,6 @@ expression: "render(View::Sessions, 160, 45)"
 │                                                                      ││Write           ████████████████████████████████████████▏                          14 │
 │                                                                      ││Grep            ███████████████████████████████▌                                   11 │
 │                                                                      ││WebFetch        █████████████████▏                                                  6 │
-│                                                                      ││                                                                                      │
 │                                                                      ││                                                                                      │
 │                                                                      ││                                                                                      │
 │                                                                      ││                                                                                      │

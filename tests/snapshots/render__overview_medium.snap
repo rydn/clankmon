@@ -4,7 +4,7 @@ expression: "render(View::Overview, 120, 40)"
 ---
  ▗▛▜▖▜▛  ▗█▖ █▖▐▌▜▌▐▌█▖▟▌▗▛▙ █▖▐▌   PLAN  MAX · max 20x ▸ theme neon                                           19:30:00 
  █   ▐▌  █ █ █▜▟▌▐▙▛ ███▌█ ▐▌█▜▟▌   LIVE  4 sessions ▸ 2 busy ▸ 1 waiting ▸ ↯ 2 streaming 84 tok/s                      
- ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h                                        
+ ▜▖▗▖▐▌▗▌█▀█ █ ▜▌▐▌▜▖█▝▐▌▜▖▟▘█ ▜▌   TODAY  $23.93 ▸ 25M tok ▸ 225 req ▸ $11.26/h ▸ ≈1.07 kWh est.                       
   ▀▀ ▀▀▀▘▀ ▀ ▀ ▝▘▀▘▝▘▀ ▝▘ ▀▘ ▀ ▝▘   FEED  ●jsonl ●procs ●status ●hooks ●proxy ○otel ○oauth                              
 ╭◢ QUOTA ◣──────────────────────────── statusline 0s ago ╮╭◢ THROUGHPUT ◣──────────────────────────────── 10s/col · 9m ╮
 │5H  ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▮▰▰▰▰▱▱▱▱▱▱▱   81%  ⟳1h37m ││▲ PROMPT  583k tok/min  peak 1.9M  ■read ■write ■new        │
