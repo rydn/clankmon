@@ -64,7 +64,7 @@ A feed of every API turn: tokens by kind, cost, stop reason, latency, tools call
 <td valign="top">
 
 **▸ Cost at list price**<br>
-Every request is priced from an embedded, overridable table that knows the 5-minute and 1-hour cache-write rates. Daily, per-model and per-session totals add up to the cent.
+Every request is priced from an embedded, overridable table that knows the 5-minute and 1-hour cache-write rates. Daily, per-model and per-session totals add up to the cent. Energy is shown beside cost as an estimate, an order-of-magnitude figure from assumed per-token rates, not a measurement.
 
 </td>
 </tr>

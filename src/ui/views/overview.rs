@@ -203,6 +203,9 @@ fn quota(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
                 sep(),
                 Span::styled("block ends near ", Style::new().fg(t.dim)),
                 Span::styled(fmt::money(projected), Style::new().fg(t.tertiary)),
+                sep(),
+                Span::styled(fmt::power(burn.energy_wh_per_hour), Style::new().fg(t.ok)),
+                Span::styled(" est.", Style::new().fg(t.dim)),
             ]),
         );
     }
@@ -218,6 +221,9 @@ fn quota(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
             Span::styled(format!("{} req", b.requests), Style::new().fg(t.text)),
             Span::styled(" ▸ ends ", Style::new().fg(t.dim)),
             Span::styled(fmt::dur_secs((b.end - now).num_seconds()), Style::new().fg(t.secondary)),
+            sep(),
+            Span::styled(fmt::energy(b.energy_wh), Style::new().fg(t.ok)),
+            Span::styled(" est.", Style::new().fg(t.dim)),
         ]),
         None => Line::from(vec![
             Span::styled("BLOCK ", Style::new().fg(t.primary).add_modifier(Modifier::BOLD)),

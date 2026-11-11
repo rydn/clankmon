@@ -16,6 +16,7 @@ pub struct Block {
     pub last_activity: DateTime<Utc>,
     pub usage: Usage,
     pub cost: f64,
+    pub energy_wh: f64,
     pub requests: u64,
 }
 
@@ -46,6 +47,7 @@ pub fn blocks<'a>(sorted: impl IntoIterator<Item = &'a Request>) -> Vec<Block> {
         b.last_activity = r.ts;
         b.usage.add(&r.usage);
         b.cost += r.cost_usd;
+        b.energy_wh += r.energy_wh;
         b.requests += 1;
     }
     out
@@ -58,6 +60,8 @@ pub struct Burn {
     pub output_per_min: f64,
     pub requests_per_min: f64,
     pub cost_per_hour: f64,
+    /// Estimated mean power (Wh per hour, i.e. watts); see `crate::energy`.
+    pub energy_wh_per_hour: f64,
     /// cache_read / prompt_total over the window, 0..1.
     pub cache_hit: Option<f64>,
     pub ttft_p50_ms: Option<u64>,
@@ -72,6 +76,7 @@ pub fn burn<'a>(requests: impl IntoIterator<Item = &'a Request>, now: DateTime<U
     let mut u = Usage::default();
     let mut n = 0u64;
     let mut cost = 0.0;
+    let mut energy = 0.0;
     let mut ttfts = Vec::new();
     let mut durs = Vec::new();
     let mut speeds: Vec<f64> = Vec::new();
@@ -82,6 +87,7 @@ pub fn burn<'a>(requests: impl IntoIterator<Item = &'a Request>, now: DateTime<U
         u.add(&r.usage);
         n += 1;
         cost += r.cost_usd;
+        energy += r.energy_wh;
         if let Some(t) = r.ttft_ms {
             ttfts.push(t);
         }
@@ -103,6 +109,7 @@ pub fn burn<'a>(requests: impl IntoIterator<Item = &'a Request>, now: DateTime<U
         output_per_min: u.output as f64 / m,
         requests_per_min: n as f64 / m,
         cost_per_hour: cost * 60.0 / m,
+        energy_wh_per_hour: energy * 60.0 / m,
         cache_hit: (prompt > 0).then(|| u.cache_read as f64 / prompt as f64),
         ttft_p50_ms: median(&mut ttfts),
         duration_p50_ms: median(&mut durs),
@@ -411,6 +418,16 @@ mod tests {
         assert_eq!(b.requests_per_min, 0.2);
         assert!((b.cost_per_hour - 6.0).abs() < 1e-9);
         assert_eq!(b.cache_hit, Some(0.9));
+    }
+
+    #[test]
+    fn energy_sums_into_blocks_and_burn() {
+        let with = |ts, wh| Request { energy_wh: wh, ..req(ts, 1, 0.0) };
+        let rs = vec![with(at(9, 0), 1.0), with(at(11, 55), 2.0), with(at(11, 58), 3.0)];
+        let b = blocks(&rs);
+        assert!((b[0].energy_wh - 6.0).abs() < 1e-12);
+        let burn = burn(&rs, at(12, 0), 30);
+        assert!((burn.energy_wh_per_hour - 2.0 * 5.0).abs() < 1e-12);
     }
 
     fn bucket(out: u64) -> Bucket {

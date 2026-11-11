@@ -152,6 +152,11 @@ pub fn render(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
         cost.push(Span::styled(format!(" · Claude Code says {}", fmt::money(c)), Style::new().fg(t.muted)));
     }
     lines.push(Line::from(cost));
+    lines.push(Line::from(vec![
+        Span::styled(format!("{:<11}", "energy"), Style::new().fg(t.muted)),
+        Span::styled(fmt::energy(s.energy_wh), Style::new().fg(t.ok).add_modifier(Modifier::BOLD)),
+        Span::styled(" est. · assumed rates, ? for method", Style::new().fg(t.dim)),
+    ]));
     let mut ctx = vec![Span::styled(format!("{:<11}", "context"), Style::new().fg(t.muted))];
     match s.context_pct(&st.pricing, now) {
         Some(p) => {

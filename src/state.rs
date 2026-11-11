@@ -44,6 +44,8 @@ pub struct Session {
     pub errors: u32,
     pub usage: Usage,
     pub cost: f64,
+    /// Estimated energy in Wh (assumed rates, see `crate::energy`).
+    pub energy_wh: f64,
     /// Prompt size of the latest main-loop request: the live context.
     pub context_tokens: u64,
     pub context_ts: Option<DateTime<Utc>>,
@@ -75,6 +77,7 @@ impl Session {
             errors: 0,
             usage: Usage::default(),
             cost: 0.0,
+            energy_wh: 0.0,
             context_tokens: 0,
             context_ts: None,
             compactions: 0,
@@ -378,6 +381,7 @@ impl State {
             let (c, est) = self.pricing.cost(&cur.model, &cur.usage);
             cur.cost_usd = c;
             cur.cost_estimated = est;
+            cur.energy_wh = crate::energy::estimate_wh(&cur.model, &cur.usage);
             if cur.ts != old.ts {
                 self.needs_sort = true;
             }
@@ -392,6 +396,7 @@ impl State {
             let (c, est) = self.pricing.cost(&r.model, &r.usage);
             r.cost_usd = c;
             r.cost_estimated = est;
+            r.energy_wh = crate::energy::estimate_wh(&r.model, &r.usage);
             let i = self.requests.len();
             if let Some(&last) = self.sorted.last()
                 && self.requests[last].ts > r.ts
@@ -510,6 +515,7 @@ impl State {
         let d = self.days.entry(day).or_default();
         d.usage.add(&r.usage);
         d.cost += r.cost_usd;
+        d.energy_wh += r.energy_wh;
         d.requests += 1;
         d.errors += u64::from(r.is_error());
         let m = d.by_model.entry(self.pricing.label(&r.model)).or_insert((0, 0.0));
@@ -520,6 +526,7 @@ impl State {
             let s = self.sessions.entry(sid.clone()).or_insert_with(|| Session::new(sid, r.ts));
             s.usage.add(&r.usage);
             s.cost += r.cost_usd;
+            s.energy_wh += r.energy_wh;
             s.requests += 1;
             if r.sidechain {
                 s.subagent_requests += 1;
@@ -556,6 +563,7 @@ impl State {
         if let Some(d) = self.days.get_mut(&day) {
             d.usage.sub(&r.usage);
             d.cost -= r.cost_usd;
+            d.energy_wh -= r.energy_wh;
             d.requests = d.requests.saturating_sub(1);
             d.errors = d.errors.saturating_sub(u64::from(r.is_error()));
             if let Some(m) = d.by_model.get_mut(&self.pricing.label(&r.model)) {
@@ -566,6 +574,7 @@ impl State {
         if let Some(s) = r.session_id.as_ref().and_then(|sid| self.sessions.get_mut(sid)) {
             s.usage.sub(&r.usage);
             s.cost -= r.cost_usd;
+            s.energy_wh -= r.energy_wh;
             s.requests = s.requests.saturating_sub(1);
             if r.sidechain {
                 s.subagent_requests = s.subagent_requests.saturating_sub(1);
@@ -999,6 +1008,43 @@ mod tests {
         assert_eq!(today.usage.output, 500);
         assert!((today.cost - s.requests[0].cost_usd).abs() < 1e-12);
         assert_eq!(s.persist_requests.len(), 1, "only the proxy-tagged merge persists");
+    }
+
+    fn wh(r: &Request) -> f64 {
+        crate::energy::estimate_wh(&r.model, &r.usage)
+    }
+
+    #[test]
+    fn energy_is_not_double_counted_across_stream_and_request() {
+        let mut s = state();
+        s.scan.finished = true;
+        s.apply(progress("K", 0, 10, false));
+        s.apply(progress("K", 1, 90, false));
+        assert_eq!(s.today().energy_wh, 0.0, "streams carry no energy");
+        s.apply(AppEvent::Request(Box::new(req("K", 100, 150, Sources::PROXY))));
+        let want = wh(&s.requests[0]);
+        assert!(want > 0.0);
+        assert!((s.today().energy_wh - want).abs() < 1e-12);
+        assert!((s.sessions["s1"].energy_wh - want).abs() < 1e-12);
+        // A late stream tick changes nothing.
+        s.apply(progress("K", 2, 150, true));
+        assert!((s.today().energy_wh - want).abs() < 1e-12);
+        assert!((s.sessions["s1"].energy_wh - want).abs() < 1e-12);
+    }
+
+    #[test]
+    fn energy_follows_the_merged_usage_not_the_sum() {
+        let mut s = state();
+        s.apply(AppEvent::Request(Box::new(req("r1", 90, 10, Sources::JSONL))));
+        s.apply(AppEvent::Request(Box::new(req("r1", 90, 500, Sources::PROXY))));
+        let want = wh(&s.requests[0]);
+        assert_eq!(s.requests[0].usage.output, 500);
+        assert!((s.requests[0].energy_wh - want).abs() < 1e-12);
+        assert!((s.today().energy_wh - want).abs() < 1e-12);
+        s.apply(AppEvent::Request(Box::new(req("r2", 91, 40, Sources::JSONL))));
+        let total: f64 = s.requests.iter().map(|r| r.energy_wh).sum();
+        assert!((s.today().energy_wh - total).abs() < 1e-12);
+        assert!((s.sessions["s1"].energy_wh - total).abs() < 1e-12);
     }
 
     #[test]
