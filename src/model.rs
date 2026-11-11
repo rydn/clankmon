@@ -110,6 +110,9 @@ pub struct Request {
     pub cost_usd: f64,
     /// True when the model was not in the pricing table and a fallback price was used.
     pub cost_estimated: bool,
+    /// Estimated energy in Wh (assumed rates, see `crate::energy`); recomputed on merge.
+    #[serde(default)]
+    pub energy_wh: f64,
     pub stop_reason: Option<String>,
     pub duration_ms: Option<u64>,
     pub ttft_ms: Option<u64>,
@@ -398,6 +401,8 @@ pub struct StatuslineInfo {
 pub struct DayAgg {
     pub usage: Usage,
     pub cost: f64,
+    #[serde(default)]
+    pub energy_wh: f64,
     pub requests: u64,
     pub errors: u64,
     pub by_model: BTreeMap<String, (u64, f64)>,
@@ -526,6 +531,18 @@ mod tests {
         assert_eq!(a.ttft_ms, Some(812));
         assert_eq!(a.tools, vec!["Bash", "Read"]);
         assert_eq!(a.sources.tag(), "JP·");
+    }
+
+    #[test]
+    fn energy_defaults_to_zero_for_old_json() {
+        let mut v = serde_json::to_value(Request { energy_wh: 5.0, ..Default::default() }).unwrap();
+        v.as_object_mut().unwrap().remove("energy_wh");
+        let r: Request = serde_json::from_value(v).unwrap();
+        assert_eq!(r.energy_wh, 0.0);
+        let mut v = serde_json::to_value(DayAgg { energy_wh: 5.0, ..Default::default() }).unwrap();
+        v.as_object_mut().unwrap().remove("energy_wh");
+        let d: DayAgg = serde_json::from_value(v).unwrap();
+        assert_eq!(d.energy_wh, 0.0);
     }
 
     #[test]

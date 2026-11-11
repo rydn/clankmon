@@ -4,6 +4,7 @@ pub mod cli;
 pub mod collect;
 pub mod config;
 pub mod demo;
+pub mod energy;
 pub mod ipc;
 pub mod mem;
 pub mod model;
