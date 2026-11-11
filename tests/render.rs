@@ -100,13 +100,21 @@ fn help_popup() {
 #[test]
 fn help_popup_energy_lines_not_clipped() {
     let out = render_with(View::Overview, 160, 45, true);
+    for needle in ["ENERGY", "estimate, never measured", clankmon::energy::SOURCE] {
+        assert!(out.contains(needle), "help popup clips or lacks: {needle}");
+    }
+}
+
+#[test]
+fn help_popup_footer_visible_at_34_rows() {
+    let out = render_with(View::Overview, 120, 34, true);
     for needle in [
         "ENERGY",
-        "tokens × assumed Wh per million tokens by model tier",
+        "estimate, never measured",
         clankmon::energy::SOURCE,
-        "Anthropic publishes no per-token energy; order of magnitude only",
+        "costs are list-price equivalents",
     ] {
-        assert!(out.contains(needle), "help popup clips or lacks: {needle}");
+        assert!(out.contains(needle), "help popup clips or lacks at 120x34: {needle}");
     }
 }
 
