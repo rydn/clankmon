@@ -37,17 +37,19 @@ pub fn money(c: f64) -> String {
 
 /// Estimated energy: "≈350 mWh", "≈4.3 Wh", "≈1.62 kWh". Always carries the estimate sign.
 pub fn energy(wh: f64) -> String {
-    if !wh.is_finite() || wh <= 0.0 {
+    // Thresholds sit at the rounding boundary of the unit below, so a value that
+    // rounds up (999.6 Wh) moves to the next unit instead of printing "1000 Wh".
+    if !wh.is_finite() || wh < 5e-4 {
         "≈0 Wh".into()
-    } else if wh < 1.0 {
+    } else if wh < 0.9995 {
         format!("≈{:.0} mWh", wh * 1e3)
-    } else if wh < 10.0 {
+    } else if wh < 9.95 {
         format!("≈{wh:.1} Wh")
-    } else if wh < 1e3 {
+    } else if wh < 999.5 {
         format!("≈{wh:.0} Wh")
-    } else if wh < 1e4 {
+    } else if wh < 9_995.0 {
         format!("≈{:.2} kWh", wh / 1e3)
-    } else if wh < 1e6 {
+    } else if wh < 999_950.0 {
         format!("≈{:.1} kWh", wh / 1e3)
     } else {
         format!("≈{:.2} MWh", wh / 1e6)
@@ -58,9 +60,9 @@ pub fn energy(wh: f64) -> String {
 pub fn power(w: f64) -> String {
     if !w.is_finite() || w <= 0.0 {
         "≈0 W".into()
-    } else if w < 10.0 {
+    } else if w < 9.95 {
         format!("≈{w:.1} W")
-    } else if w < 1e3 {
+    } else if w < 999.5 {
         format!("≈{w:.0} W")
     } else {
         format!("≈{:.1} kW", w / 1e3)
@@ -167,6 +169,15 @@ mod tests {
         assert_eq!(energy(10_000.0), "≈10.0 kWh");
         assert_eq!(energy(1e6), "≈1.00 MWh");
         assert_eq!(energy(f64::INFINITY), "≈0 Wh");
+        assert_eq!(energy(0.9996), "≈1.0 Wh");
+        assert_eq!(energy(9.96), "≈10 Wh");
+        assert_eq!(energy(999.6), "≈1.00 kWh");
+        assert_eq!(energy(9999.5), "≈10.0 kWh");
+        assert_eq!(energy(999_960.0), "≈1.00 MWh");
+        assert_eq!(energy(0.0004), "≈0 Wh");
+        assert_eq!(energy(0.0006), "≈1 mWh");
+        assert_eq!(power(9.96), "≈10 W");
+        assert_eq!(power(999.6), "≈1.0 kW");
         assert_eq!(power(9.9), "≈9.9 W");
         assert_eq!(power(999.0), "≈999 W");
         assert_eq!(power(1000.0), "≈1.0 kW");

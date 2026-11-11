@@ -223,6 +223,7 @@ fn quota(buf: &mut Buffer, area: Rect, app: &mut App, st: &State) {
             Span::styled(fmt::dur_secs((b.end - now).num_seconds()), Style::new().fg(t.secondary)),
             sep(),
             Span::styled(fmt::energy(b.energy_wh), Style::new().fg(t.ok)),
+            Span::styled(" est.", Style::new().fg(t.dim)),
         ]),
         None => Line::from(vec![
             Span::styled("BLOCK ", Style::new().fg(t.primary).add_modifier(Modifier::BOLD)),

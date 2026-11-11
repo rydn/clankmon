@@ -122,8 +122,12 @@ fn sessions_detail_shows_estimated_energy() {
 fn overview_labels_energy_as_estimate() {
     let big = render(View::Overview, 200, 50);
     assert!(big.contains("W est."), "burn power missing");
-    assert!(big.contains("kWh") || big.contains("Wh"), "block energy missing");
     assert!(big.contains(" est."), "header estimate marker missing");
+    for (w, h) in [(200, 50), (80, 24)] {
+        let out = render(View::Overview, w, h);
+        let block = out.lines().find(|l| l.contains("BLOCK")).expect("BLOCK line");
+        assert!(block.contains('≈') && block.contains("Wh est."), "{w}x{h} block energy: {block}");
+    }
 }
 
 #[test]
